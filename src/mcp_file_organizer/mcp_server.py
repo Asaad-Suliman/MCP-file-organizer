@@ -1367,6 +1367,76 @@ def redo_last_action():
     }
 
 
+@mcp.tool()
+def reset_workspace():
+    """
+    Move ALL files from ALL subfolders back into the main workspace folder.
+    Does NOT delete any folder.
+    Does NOT overwrite files (adds a number if name already exists).
+    """
+
+    if not WORKSPACE.exists():
+        return {"status": "error", "message": "Workspace does not exist."}
+
+    moved = []
+    skipped = []
+
+    for folder in WORKSPACE.iterdir():
+        # skip files in root
+        if folder.is_file():
+            continue
+
+        # skip special system/internal folders
+        if folder.name in ["Archive", "Duplicates"]:
+            skipped.append(f"Skipped special folder: {folder.name}")
+            continue
+
+        # move files inside subfolder
+        if folder.is_dir():
+            for file in folder.iterdir():
+                if not file.is_file():
+                    continue
+
+                # final target in root
+                target = WORKSPACE / file.name
+
+                # if file with same name exists → rename
+                if target.exists():
+                    base = file.stem
+                    ext = file.suffix
+                    counter = 1
+
+                    # generate unique name: filename(1).png, filename(2).png, etc.
+                    while True:
+                        new_name = f"{base}({counter}){ext}"
+                        new_target = WORKSPACE / new_name
+                        if not new_target.exists():
+                            target = new_target
+                            break
+                        counter += 1
+
+                try:
+                    file.rename(target)
+                    moved.append({
+                        "file": file.name,
+                        "from": str(folder),
+                        "to": str(target)
+                    })
+                except Exception as e:
+                    skipped.append({
+                        "file": file.name,
+                        "folder": folder.name,
+                        "reason": str(e)
+                    })
+
+    return {
+        "status": "ok",
+        "moved_files_count": len(moved),
+        "moved": moved,
+        "skipped": skipped
+    }
+
+
 # -----------------------------
 # START SERVER
 # -----------------------------
