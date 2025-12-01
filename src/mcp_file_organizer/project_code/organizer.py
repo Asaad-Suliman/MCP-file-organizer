@@ -11,6 +11,7 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 WORKSPACE = BASE_DIR / "workspace"
 HISTORY_FILE = WORKSPACE / "_history.json"
 
+
 # ------------------------------------------
 # History Helpers
 # ------------------------------------------
@@ -53,6 +54,35 @@ def organize_folder(path="."):
         # -------------------------------------------------
         if item.is_file():
 
+            name_lower = item.name.lower()
+            ext = item.suffix.lower()
+
+            # A) System files → skip
+            if name_lower in ["desktop.ini", "thumbs.db"]:
+                save_history({
+                    "type": "system_file_skipped",
+                    "file": item.name
+                })
+                continue
+
+            # B) Installers / executables → skip
+            if ext in [".exe", ".msi", ".bat", ".cmd"]:
+                save_history({
+                    "type": "installer_skipped",
+                    "file": item.name,
+                    "reason": "Executable or installer detected."
+                })
+                continue
+
+            # C) Shortcuts → skip
+            if ext == ".lnk":
+                save_history({
+                    "type": "shortcut_skipped",
+                    "file": item.name
+                })
+                continue
+
+            # D) Normal files
             category = find_category(item.name)
             target_folder = folder / category
             target_folder.mkdir(exist_ok=True)
@@ -69,27 +99,31 @@ def organize_folder(path="."):
                     "category": category
                 })
 
-                message = f"Moved file: {item.name} → {category}/"
-                print(message)
-                log(message)
-                moved_items.append({"type": "file", "name": item.name, "category": category})
+                print(f"Moved file: {item.name} → {category}/")
+                log(f"Moved file: {item.name} → {category}/")
+                moved_items.append({
+                    "type": "file",
+                    "name": item.name,
+                    "category": category
+                })
 
             except Exception as e:
                 log(f"Error moving file {item.name}: {e}")
                 print(f"Could not move file {item.name}: {e}")
+
 
         # -------------------------------------------------
         # 2) FOLDER HANDLING
         # -------------------------------------------------
         elif item.is_dir():
 
-            # Skip internal folders
+            # Skip our system folders
             if item.name in {"Archive", "Duplicates"}:
                 continue
 
             folder_type = detect_folder_type(item)
 
-            # If folder might be an app → skip
+            # Applications folder needs confirmation
             if folder_type == "Applications_NEEDS_CONFIRMATION":
                 save_history({
                     "type": "folder_skipped_requires_confirmation",
@@ -97,7 +131,7 @@ def organize_folder(path="."):
                 })
                 continue
 
-            # Move the folder to its target category
+            # Move folder to category
             target_folder = folder / folder_type
             target_folder.mkdir(exist_ok=True)
 
@@ -115,13 +149,16 @@ def organize_folder(path="."):
 
                 print(f"Moved folder: {item.name} → {folder_type}/")
                 log(f"Moved folder: {item.name} → {folder_type}/")
-                moved_items.append({"type": "folder", "name": item.name, "category": folder_type})
+                moved_items.append({
+                    "type": "folder",
+                    "name": item.name,
+                    "category": folder_type
+                })
 
             except Exception as e:
                 log(f"Error moving folder {item.name}: {e}")
                 print(f"Could not move folder {item.name}: {e}")
 
-    # End loop
     return {"status": "ok", "moved": moved_items}
 
 
