@@ -9,7 +9,7 @@ import os
 import json
 import hashlib
 
-from project_code.organizer import organize_folder
+from .project_code.organizer import organize_folder
 from send2trash import send2trash
 
 
