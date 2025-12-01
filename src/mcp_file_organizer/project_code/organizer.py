@@ -4,6 +4,7 @@ import json
 from send2trash import send2trash
 from .step2_find_category import find_category
 from .step1_categories import CATEGORIES
+from .step2_detect_folder import detect_folder_type
 
 
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -43,9 +44,13 @@ def organize_folder(path="."):
         log(message)
         return {"status": "error", "message": message}
 
-    moved_files = []
+    moved_items = []
 
     for item in folder.iterdir():
+
+        # -------------------------------------------------
+        # 1) FILE HANDLING
+        # -------------------------------------------------
         if item.is_file():
 
             category = find_category(item.name)
@@ -57,24 +62,67 @@ def organize_folder(path="."):
             try:
                 item.rename(destination)
 
-                # 🔥 Add history
                 save_history({
-                    "type": "move",
+                    "type": "move_file",
                     "from": str(item),
-                    "to": str(destination)
+                    "to": str(destination),
+                    "category": category
                 })
 
-                message = f"Moved: {item.name} → {category}/"
+                message = f"Moved file: {item.name} → {category}/"
                 print(message)
                 log(message)
-                moved_files.append({"file": item.name, "category": category})
+                moved_items.append({"type": "file", "name": item.name, "category": category})
 
             except Exception as e:
-                message = f"Could not move {item.name}: {e}"
-                print(message)
-                log(message)
+                log(f"Error moving file {item.name}: {e}")
+                print(f"Could not move file {item.name}: {e}")
 
-    return {"status": "ok", "moved": moved_files}
+        # -------------------------------------------------
+        # 2) FOLDER HANDLING
+        # -------------------------------------------------
+        elif item.is_dir():
+
+            # Skip internal folders
+            if item.name in {"Archive", "Duplicates"}:
+                continue
+
+            folder_type = detect_folder_type(item)
+
+            # If folder might be an app → skip
+            if folder_type == "Applications_NEEDS_CONFIRMATION":
+                save_history({
+                    "type": "folder_skipped_requires_confirmation",
+                    "folder": item.name
+                })
+                continue
+
+            # Move the folder to its target category
+            target_folder = folder / folder_type
+            target_folder.mkdir(exist_ok=True)
+
+            new_path = target_folder / item.name
+
+            try:
+                item.rename(new_path)
+
+                save_history({
+                    "type": "move_folder",
+                    "from": str(item),
+                    "to": str(new_path),
+                    "folder_type": folder_type
+                })
+
+                print(f"Moved folder: {item.name} → {folder_type}/")
+                log(f"Moved folder: {item.name} → {folder_type}/")
+                moved_items.append({"type": "folder", "name": item.name, "category": folder_type})
+
+            except Exception as e:
+                log(f"Error moving folder {item.name}: {e}")
+                print(f"Could not move folder {item.name}: {e}")
+
+    # End loop
+    return {"status": "ok", "moved": moved_items}
 
 
 if __name__ == "__main__":
