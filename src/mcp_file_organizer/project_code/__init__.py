@@ -1,5 +1,6 @@
 from mcp.server.fastmcp import FastMCP
 from pathlib import Path
+from .organizer import organize_folder
 
 mcp = FastMCP("file-organizer")
 
@@ -22,8 +23,6 @@ def list_files():
     ]
 
     return {"status": "ok", "files": files}
-
-from project_code.organizer import organize_folder
 
 @mcp.tool()
 def organize_workspace():
