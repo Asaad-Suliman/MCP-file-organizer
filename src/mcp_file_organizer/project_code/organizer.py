@@ -2,6 +2,9 @@ from pathlib import Path
 from datetime import datetime
 import json
 from send2trash import send2trash
+from .step2_find_category import find_category
+from .step1_categories import CATEGORIES
+
 
 BASE_DIR = Path(__file__).resolve().parent.parent
 WORKSPACE = BASE_DIR / "workspace"
@@ -22,12 +25,6 @@ def save_history(entry):
     history.append(entry)
     HISTORY_FILE.write_text(json.dumps(history, indent=2))
 
-
-# ------------------------------------------
-# Organizer Logic
-# ------------------------------------------
-from project_code.step2_find_category import find_category
-from project_code.step1_categories import CATEGORIES
 
 LOG_FILE = "organizer.log"
 
