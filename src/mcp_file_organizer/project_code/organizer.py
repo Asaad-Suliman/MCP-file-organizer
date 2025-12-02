@@ -2,20 +2,27 @@ from pathlib import Path
 from datetime import datetime
 import json
 from send2trash import send2trash
+
+# Local imports
 from .step2_find_category import find_category
 from .step1_categories import CATEGORIES
 from .step2_detect_folder import detect_folder_type
 
 
+# ---------------------------------------------------
+# PATHS
+# ---------------------------------------------------
 BASE_DIR = Path(__file__).resolve().parent.parent
 WORKSPACE = BASE_DIR / "workspace"
 HISTORY_FILE = WORKSPACE / "_history.json"
+LOG_FILE = "organizer.log"
 
 
-# ------------------------------------------
-# History Helpers
-# ------------------------------------------
+# ---------------------------------------------------
+# HISTORY HELPERS
+# ---------------------------------------------------
 def save_history(entry):
+    """Append a new history entry to the _history.json file."""
     history = []
 
     if HISTORY_FILE.exists():
@@ -28,14 +35,36 @@ def save_history(entry):
     HISTORY_FILE.write_text(json.dumps(history, indent=2))
 
 
-LOG_FILE = "organizer.log"
+def pop_last_history():
+    """Pop last entry from history file and return it."""
+    if not HISTORY_FILE.exists():
+        return None
 
+    try:
+        history = json.loads(HISTORY_FILE.read_text())
+    except:
+        return None
+
+    if not history:
+        return None
+
+    last = history.pop()
+    HISTORY_FILE.write_text(json.dumps(history, indent=2))
+    return last
+
+
+# ---------------------------------------------------
+# LOGGING
+# ---------------------------------------------------
 def log(message):
     timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
     with open(LOG_FILE, "a", encoding="utf-8") as f:
         f.write(f"[{timestamp}] {message}\n")
 
 
+# ---------------------------------------------------
+# MAIN ORGANIZER
+# ---------------------------------------------------
 def organize_folder(path="."):
     folder = Path(path)
 
@@ -101,6 +130,7 @@ def organize_folder(path="."):
 
                 print(f"Moved file: {item.name} → {category}/")
                 log(f"Moved file: {item.name} → {category}/")
+
                 moved_items.append({
                     "type": "file",
                     "name": item.name,
@@ -111,19 +141,18 @@ def organize_folder(path="."):
                 log(f"Error moving file {item.name}: {e}")
                 print(f"Could not move file {item.name}: {e}")
 
-
         # -------------------------------------------------
         # 2) FOLDER HANDLING
         # -------------------------------------------------
         elif item.is_dir():
 
-            # Skip our system folders
+            # Skip internal folders
             if item.name in {"Archive", "Duplicates"}:
                 continue
 
             folder_type = detect_folder_type(item)
 
-            # Applications folder needs confirmation
+            # App-related folder? Ask for confirmation — skip for now
             if folder_type == "Applications_NEEDS_CONFIRMATION":
                 save_history({
                     "type": "folder_skipped_requires_confirmation",
@@ -149,6 +178,7 @@ def organize_folder(path="."):
 
                 print(f"Moved folder: {item.name} → {folder_type}/")
                 log(f"Moved folder: {item.name} → {folder_type}/")
+
                 moved_items.append({
                     "type": "folder",
                     "name": item.name,
@@ -159,9 +189,51 @@ def organize_folder(path="."):
                 log(f"Error moving folder {item.name}: {e}")
                 print(f"Could not move folder {item.name}: {e}")
 
+    # END LOOP
     return {"status": "ok", "moved": moved_items}
 
 
+# ---------------------------------------------------
+# UNDO FOR FOLDERS
+# ---------------------------------------------------
+def undo_last_folder_move():
+    """Undo the most recent folder move."""
+    entry = pop_last_history()
+
+    if not entry:
+        return {"status": "error", "message": "No history available."}
+
+    if entry["type"] not in {"move_folder", "move_folder_bulk"}:
+        return {"status": "skipped", "reason": "Last history entry is not a folder move."}
+
+    old_path = Path(entry["from"])
+    new_path = Path(entry["to"])
+
+    if new_path.exists():
+        try:
+            new_path.rename(old_path)
+            return {
+                "status": "ok",
+                "action": "folder_move_undone",
+                "folder": new_path.name,
+                "restored_to": str(old_path)
+            }
+        except Exception as e:
+            return {
+                "status": "error",
+                "folder": new_path.name,
+                "message": str(e)
+            }
+
+    return {
+        "status": "error",
+        "message": f"Folder not found at undo location: {new_path}"
+    }
+
+
+# ---------------------------------------------------
+# MAIN (for standalone testing)
+# ---------------------------------------------------
 if __name__ == "__main__":
     result = organize_folder(".")
     print(result)
