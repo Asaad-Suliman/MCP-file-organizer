@@ -28,6 +28,8 @@ HISTORY_FILE = WORKSPACE / "_history.json"
 REDO_FILE = WORKSPACE / "_redo.json"
 RULES_FILE = WORKSPACE / "rules.json"
 PROTECTED_EXTENSIONS = {".py", ".ipynb", ".md", ".docx", ".txt", ".json"}
+APP_EXTENSIONS = [".exe", ".msi", ".bat", ".cmd"]
+APP_KEYWORDS = ["setup", "installer", "install", "app", "program", "bin", "windows", "driver"]
 
 
 # -----------------------------
@@ -1436,6 +1438,84 @@ def reset_workspace():
         "skipped": skipped
     }
 
+
+@mcp.tool()
+def move_app_folder(folder_name: str, target_category: str, confirm: str):
+    """
+    Move an app/installer folder ONLY with explicit confirmation.
+    Example:
+        move_app_folder("Blender_4.0_Setup", "Applications", "YES")
+    """
+
+    if confirm.upper() != "YES":
+        return {
+            "status": "error",
+            "message": "Confirmation missing. Use confirm='YES' to move app folders."
+        }
+
+    folder_path = WORKSPACE / folder_name
+
+    if not folder_path.exists() or not folder_path.is_dir():
+        return {"status": "error", "message": f"Folder not found: {folder_name}"}
+
+    target_folder = WORKSPACE / target_category
+    target_folder.mkdir(exist_ok=True)
+
+    new_path = target_folder / folder_name
+
+    try:
+        folder_path.rename(new_path)
+
+        save_history({
+            "type": "move_app_folder",
+            "from": str(folder_path),
+            "to": str(new_path),
+            "confirmed": True
+        })
+
+        return {
+            "status": "ok",
+            "message": f"Folder '{folder_name}' moved to {target_category}/ (confirmed)"
+        }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
+
+@mcp.tool()
+def list_app_folders():
+    """
+    Scan the workspace for folders that contain installer/executable files.
+    Returns a clean list so Claude can ask for confirmation.
+    """
+
+    if not WORKSPACE.exists():
+        return {"status": "error", "message": "Workspace does not exist."}
+
+    app_folders = []
+
+    for folder in WORKSPACE.iterdir():
+        if not folder.is_dir():
+            continue
+
+        folder_lower = folder.name.lower()
+
+        # 1) Folder name looks like an app installer
+        if any(keyword in folder_lower for keyword in APP_KEYWORDS):
+            app_folders.append(str(folder))
+            continue
+
+        # 2) Folder contains exe/msi/bat/cmd inside it
+        for file in folder.rglob("*"):
+            if file.is_file() and file.suffix.lower() in APP_EXTENSIONS:
+                app_folders.append(str(folder))
+                break
+
+    return {
+        "status": "ok",
+        "workspace": str(WORKSPACE),
+        "detected_app_folders": sorted(set(app_folders))
+    }
 
 # -----------------------------
 # START SERVER
