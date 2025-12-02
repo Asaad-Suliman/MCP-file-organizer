@@ -1687,6 +1687,54 @@ def undo_folder_moves():
         "errors": errors
     }
 
+
+@mcp.tool()
+def move_folder_back(folder_name: str, original_path: str):
+    """
+    Move a folder from the workspace back to a specific location.
+    Example:
+        move_folder_back("Blender", "F:/Laptop/Desktop")
+    """
+
+    folder_path = WORKSPACE / folder_name
+    target_path = Path(original_path).expanduser().resolve()
+
+    # Validate folder
+    if not folder_path.exists():
+        return {"status": "error", "message": f"Folder not found: {folder_path}"}
+
+    if not folder_path.is_dir():
+        return {"status": "error", "message": f"Not a folder: {folder_path}"}
+
+    # Validate target path
+    if not target_path.exists():
+        return {"status": "error", "message": f"Target path does not exist: {target_path}"}
+
+    if not target_path.is_dir():
+        return {"status": "error", "message": f"Target path is not a directory: {target_path}"}
+
+    # Build final destination
+    new_location = target_path / folder_name
+
+    try:
+        folder_path.rename(new_location)
+
+        # Save undo history
+        save_history({
+            "type": "manual_folder_move_back",
+            "from": str(folder_path),
+            "to": str(new_location)
+        })
+
+        return {
+            "status": "ok",
+            "message": f"Moved {folder_name} back to {original_path}",
+            "new_path": str(new_location)
+        }
+
+    except Exception as e:
+        return {"status": "error", "message": str(e)}
+
 # -----------------------------
 # START SERVER
 # -----------------------------
