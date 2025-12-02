@@ -1263,14 +1263,24 @@ def load_history():
 
 
 def pop_last_history():
-    """Remove and return the last history entry."""
+    """Remove last entry from history and push it into redo stack."""
+    if not HISTORY_FILE.exists():
+        return None
+
     history = load_history()
+
     if not history:
         return None
 
+    # Remove the last action
     last = history.pop()
-
     HISTORY_FILE.write_text(json.dumps(history, indent=2))
+
+    # Load redo stack (ensure list)
+    redo_list = load_redo() or []
+    redo_list.append(last)
+    save_redo(redo_list)
+
     return last
 
 
@@ -1333,39 +1343,68 @@ def undo_last_action():
 def redo_last_action():
     """
     Reapply the last undone action.
-    Only works if undo_last_action() was used before.
+    Supports:
+    - move_file
+    - move_folder
     """
     redo_list = load_redo()
 
     if not redo_list:
         return {"status": "error", "message": "No redo actions available."}
 
-    last_redo = redo_list.pop()  # take last undone action
+    entry = redo_list.pop()
     save_redo(redo_list)
 
-    action_type = last_redo["type"]
+    action_type = entry["type"]
 
-    # Reapply MOVE
-    if action_type == "move":
-        src = Path(last_redo["from"])
-        dst = Path(last_redo["to"])
+    # ----------------------------
+    # Redo FILE move
+    # ----------------------------
+    if action_type == "move_file":
+        old_path = Path(entry["from"])
+        new_path = Path(entry["to"])
 
-        # If original file exists → move again
-        if src.exists():
-            src.rename(dst)
+        if old_path.exists():
+            try:
+                old_path.rename(new_path)
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
 
-        # Also return it to history
-        save_history(last_redo)
+        save_history(entry)
 
         return {
             "status": "ok",
-            "message": f"Redo: action reapplied for {src.name}",
-            "redone_action": last_redo
+            "message": f"Redo successful: moved file again → {new_path}",
+            "entry": entry
         }
 
+    # ----------------------------
+    # Redo FOLDER move
+    # ----------------------------
+    if action_type == "move_folder":
+        old_path = Path(entry["from"])
+        new_path = Path(entry["to"])
+
+        if old_path.exists():
+            try:
+                old_path.rename(new_path)
+            except Exception as e:
+                return {"status": "error", "message": str(e)}
+
+        save_history(entry)
+
+        return {
+            "status": "ok",
+            "message": f"Redo successful: moved folder again → {new_path}",
+            "entry": entry
+        }
+
+    # ----------------------------
+    # Unsupported redo actions
+    # ----------------------------
     return {
         "status": "error",
-        "message": "Redo type not supported yet."
+        "message": f"Redo not supported for action type: {action_type}"
     }
 
 
