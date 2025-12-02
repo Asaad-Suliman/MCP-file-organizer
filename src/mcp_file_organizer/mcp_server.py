@@ -1517,6 +1517,176 @@ def list_app_folders():
         "detected_app_folders": sorted(set(app_folders))
     }
 
+@mcp.tool()
+def move_app_folders():
+    """
+    Move all detected application/installer folders into workspace/Apps/.
+    Uses same detection logic as list_app_folders().
+    """
+
+    if not WORKSPACE.exists():
+        return {"status": "error", "message": "Workspace does not exist."}
+
+    apps_folder = WORKSPACE / "Apps"
+    apps_folder.mkdir(exist_ok=True)
+
+    moved = []
+    skipped = []
+
+    for folder in WORKSPACE.iterdir():
+        if not folder.is_dir():
+            continue
+
+        folder_lower = folder.name.lower()
+
+        # match folder name
+        name_matches = any(keyword in folder_lower for keyword in APP_KEYWORDS)
+
+        # match contents
+        contains_installer = False
+        for file in folder.rglob("*"):
+            if file.is_file() and file.suffix.lower() in APP_EXTENSIONS:
+                contains_installer = True
+                break
+
+        if name_matches or contains_installer:
+            new_path = apps_folder / folder.name
+            try:
+                folder.rename(new_path)
+                moved.append(str(new_path))
+
+                # history
+                save_history({
+                    "type": "move_app_folder",
+                    "from": str(folder),
+                    "to": str(new_path)
+                })
+
+            except Exception as e:
+                skipped.append(f"{folder}: {e}")
+        else:
+            skipped.append(str(folder))
+
+    return {
+        "status": "ok",
+        "apps_folder": str(apps_folder),
+        "moved_folders": moved,
+        "skipped": skipped
+    }
+
+
+@mcp.tool()
+def organize_all_folders():
+    """
+    Scan every folder in the workspace and move it into the correct category.
+    Uses detect_folder_type() for classification.
+    """
+
+    if not WORKSPACE.exists():
+        return {"status": "error", "message": "Workspace does not exist."}
+
+    results = []
+
+    for folder in WORKSPACE.iterdir():
+        if not folder.is_dir():
+            continue
+
+        # Skip internal folders we create
+        if folder.name in {"Archive", "Duplicates", "Apps"}:
+            continue
+
+        folder_type = detect_folder_type(folder)
+
+        # Skip apps → use move_app_folders instead
+        if folder_type == "Applications_NEEDS_CONFIRMATION":
+            results.append({
+                "folder": folder.name,
+                "status": "skipped_app_confirmation_required"
+            })
+            continue
+
+        target_folder = WORKSPACE / folder_type
+        target_folder.mkdir(exist_ok=True)
+
+        new_path = target_folder / folder.name
+        try:
+            folder.rename(new_path)
+
+            save_history({
+                "type": "move_folder_bulk",
+                "from": str(folder),
+                "to": str(new_path),
+                "category": folder_type
+            })
+
+            results.append({
+                "folder": folder.name,
+                "status": "moved",
+                "category": folder_type
+            })
+        except Exception as e:
+            results.append({
+                "folder": folder.name,
+                "status": "error",
+                "error": str(e)
+            })
+
+    return {
+        "status": "ok",
+        "results": results
+    }
+
+
+@mcp.tool()
+def undo_folder_moves():
+    """
+    Undo ALL folder moves stored in history.
+    Runs in reverse order for safety.
+    """
+
+    undone = []
+    skipped = []
+    errors = []
+
+    while True:
+        entry = pop_last_history()
+
+        if not entry:
+            break
+
+        # Only undo folder moves
+        if entry["type"] not in {"move_folder", "move_folder_bulk"}:
+            skipped.append(entry)
+            continue
+
+        old_path = Path(entry["from"])
+        new_path = Path(entry["to"])
+
+        if new_path.exists():
+            try:
+                new_path.rename(old_path)
+                undone.append({
+                    "folder": new_path.name,
+                    "restored_to": str(old_path)
+                })
+            except Exception as e:
+                errors.append({
+                    "folder": new_path.name,
+                    "error": str(e)
+                })
+        else:
+            errors.append({
+                "folder": new_path.name,
+                "error": "Folder not found at expected location during undo."
+            })
+
+    return {
+        "status": "ok",
+        "undone_moves": undone,
+        "skipped": skipped,
+        "errors": errors
+    }
+
 # -----------------------------
 # START SERVER
 # -----------------------------
