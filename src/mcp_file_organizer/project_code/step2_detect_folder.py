@@ -1,44 +1,50 @@
 from pathlib import Path
+from .step1_categories import CATEGORIES
 
 
 def detect_folder_type(folder_path):
     """
-    Look inside a folder and guess what type it is:
-    Images, Videos, Apps, Documents, Code, Other.
+    Inspect a folder and determine what category it belongs to
+    based on its content.
     """
 
-    folder_path = Path(folder_path)
-    files = list(folder_path.glob("*"))
+    folder = Path(folder_path)
+    counts = {cat: 0 for cat in CATEGORIES}
+    file_count = 0
 
-    if not files:
-        return "Empty_Folder"
+    # -------------------------------------------------
+    # Detect folder type by scanning its contents
+    # -------------------------------------------------
+    for item in folder.rglob("*"):
+        if item.is_file():
+            file_count += 1
+            ext = item.suffix.lower()
 
-    # Count file types
-    exts = [f.suffix.lower() for f in files if f.is_file()]
-    ext_set = set(exts)
+            # Installers → skip whole folder
+            if ext in {".exe", ".msi", ".bat", ".cmd"}:
+                return "Applications_NEEDS_CONFIRMATION"
 
-    # Image folder
-    if ext_set & {".jpg", ".jpeg", ".png", ".bmp", ".gif", ".webp"}:
-        return "Images"
+            # Shortcuts
+            if ext == ".lnk":
+                return "Applications_NEEDS_CONFIRMATION"
 
-    # Video
-    if ext_set & {".mp4", ".mov", ".mkv", ".avi"}:
-        return "Videos"
+            # Normal files: count types
+            for category, extensions in CATEGORIES.items():
+                if ext in extensions:
+                    counts[category] += 1
 
-    # Documents
-    if ext_set & {".pdf", ".docx", ".txt", ".pptx", ".xlsx"}:
-        return "Documents"
+    # -------------------------------------------------
+    # If no files → consider it "Other"
+    # -------------------------------------------------
+    if file_count == 0:
+        return "Other"
 
-    # Installers/software
-    if ext_set & {".exe", ".msi", ".lnk"}:
-        return "Applications_NEEDS_CONFIRMATION"
+    # -------------------------------------------------
+    # Compute dominant category
+    # -------------------------------------------------
+    dominant_category = max(counts, key=counts.get)
 
-    # Code / scripts
-    if ext_set & {".py", ".js", ".html", ".css"}:
-        return "Code"
+    if counts[dominant_category] == 0:
+        return "Other"
 
-    # Archives
-    if ext_set & {".zip", ".rar", ".7z", ".tar"}:
-        return "Archives"
-
-    return "Other"
+    return dominant_category
