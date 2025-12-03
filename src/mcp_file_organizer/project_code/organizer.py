@@ -86,7 +86,9 @@ def organize_folder(path="."):
             name_lower = item.name.lower()
             ext = item.suffix.lower()
 
+            # --------------------------------------------
             # A) System files → skip
+            # --------------------------------------------
             if name_lower in ["desktop.ini", "thumbs.db"]:
                 save_history({
                     "type": "system_file_skipped",
@@ -94,7 +96,37 @@ def organize_folder(path="."):
                 })
                 continue
 
-            # B) Installers / executables → skip
+            # --------------------------------------------
+            # B) EMPTY files → move to Empty_Files
+            # --------------------------------------------
+            if item.stat().st_size == 0:
+                target_folder = folder / "Empty_Files"
+                target_folder.mkdir(exist_ok=True)
+                destination = target_folder / item.name
+
+                try:
+                    item.rename(destination)
+                    save_history({
+                        "type": "move_empty_file",
+                        "from": str(item),
+                        "to": str(destination)
+                    })
+                    print(f"Moved EMPTY file: {item.name} → Empty_Files/")
+                    log(f"Moved EMPTY file: {item.name} → Empty_Files/")
+                    moved_items.append({
+                        "type": "empty_file",
+                        "name": item.name,
+                        "category": "Empty_Files"
+                    })
+                except Exception as e:
+                    print(f"Could not move empty file {item.name}: {e}")
+                    log(f"Error moving empty file {item.name}: {e}")
+
+                continue   # VERY IMPORTANT
+
+            # --------------------------------------------
+            # C) Installers / executables → skip
+            # --------------------------------------------
             if ext in [".exe", ".msi", ".bat", ".cmd"]:
                 save_history({
                     "type": "installer_skipped",
@@ -103,7 +135,9 @@ def organize_folder(path="."):
                 })
                 continue
 
-            # C) Shortcuts → skip
+            # --------------------------------------------
+            # D) Shortcuts → skip
+            # --------------------------------------------
             if ext == ".lnk":
                 save_history({
                     "type": "shortcut_skipped",
@@ -111,7 +145,9 @@ def organize_folder(path="."):
                 })
                 continue
 
-            # D) Normal files
+            # --------------------------------------------
+            # E) Normal files → categorize
+            # --------------------------------------------
             category = find_category(item.name)
             target_folder = folder / category
             target_folder.mkdir(exist_ok=True)
@@ -147,12 +183,12 @@ def organize_folder(path="."):
         elif item.is_dir():
 
             # Skip internal folders
-            if item.name in {"Archive", "Duplicates"}:
+            if item.name in {"Archive", "Duplicates", "Empty_Files"}:
                 continue
 
             folder_type = detect_folder_type(item)
 
-            # App-related folder? Ask for confirmation — skip for now
+            # Application-like folders → skip
             if folder_type == "Applications_NEEDS_CONFIRMATION":
                 save_history({
                     "type": "folder_skipped_requires_confirmation",
@@ -160,7 +196,6 @@ def organize_folder(path="."):
                 })
                 continue
 
-            # Move folder to category
             target_folder = folder / folder_type
             target_folder.mkdir(exist_ok=True)
 
@@ -189,7 +224,6 @@ def organize_folder(path="."):
                 log(f"Error moving folder {item.name}: {e}")
                 print(f"Could not move folder {item.name}: {e}")
 
-    # END LOOP
     return {"status": "ok", "moved": moved_items}
 
 
@@ -232,7 +266,7 @@ def undo_last_folder_move():
 
 
 # ---------------------------------------------------
-# MAIN (for standalone testing)
+# MAIN (standalone)
 # ---------------------------------------------------
 if __name__ == "__main__":
     result = organize_folder(".")
