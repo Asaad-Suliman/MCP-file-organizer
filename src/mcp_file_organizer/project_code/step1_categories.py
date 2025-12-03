@@ -1,12 +1,40 @@
 # File type rules for the organizer
 
 CATEGORIES = {
-    "Images": [".jpg", ".jpeg", ".png", ".gif", ".bmp", ".tiff", ".webp"],
-    "Videos": [".mp4", ".mov", ".avi", ".mkv", ".wmv"],
-    "Documents": [".pdf", ".docx", ".txt", ".xlsx", ".pptx", ".csv"],
-    "Audio": [".mp3", ".wav", ".aac", ".flac"],
-    "Archives": [".zip", ".rar", ".7z", ".tar"],
-
-    # NEW category for apps
-    "Applications": [".exe", ".msi", ".apk", ".dmg", ".pkg", ".lnk"],
+    "Documents": [
+        ".pdf", ".docx", ".doc", 
+        ".txt", ".rtf", ".md", ".odt",
+        ".xlsx", ".xls", ".csv", 
+        ".pptx", ".ppt", 
+        ".pub", ".epub"
+    ],
+    
+    "Audio": [
+        ".mp3", ".wav", ".aac", ".flac", 
+        ".m4a", ".ogg", ".wma"
+    ],
+    
+    "Videos": [
+        ".mp4", ".mov", ".avi", ".mkv", 
+        ".wmv", ".webm", ".m4v"
+    ],
+    
+    "Images": [
+        ".jpg", ".jpeg", ".png", ".gif", 
+        ".bmp", ".tiff", ".webp", 
+        ".svg", ".heic", ".ico"
+    ],
+    
+    "Archives": [
+        ".zip", ".rar", ".7z", ".tar", 
+        ".gz", ".iso"
+    ],
+    
+    "Applications": [
+        ".exe", ".msi", ".lnk",       # Windows
+        ".dmg", ".pkg",               # macOS
+        ".apk",                       # Android
+        ".deb", ".rpm",               # Linux
+        ".jar"                        # Java
+    ]
 }
