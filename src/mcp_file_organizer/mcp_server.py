@@ -770,6 +770,7 @@ def delete_duplicates():
         "deleted": deleted_files
     }
 
+
 @mcp.tool()
 def move_duplicates():
     """
@@ -1017,6 +1018,7 @@ def find_duplicates(mode: str = "hash"):
         "mode": "hash",
         "duplicates": duplicates
     }
+
 
 @mcp.tool()
 def summarize_workspace():
