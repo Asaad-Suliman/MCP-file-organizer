@@ -20,7 +20,9 @@ def detect_folder_type(folder_path):
             file_count += 1
             ext = item.suffix.lower()
 
-            # Installers → skip whole folder
+            # -------------------------------------------------
+            # Dangerous or executable → require confirmation
+            # -------------------------------------------------
             if ext in {".exe", ".msi", ".bat", ".cmd"}:
                 return "Applications_NEEDS_CONFIRMATION"
 
@@ -28,19 +30,21 @@ def detect_folder_type(folder_path):
             if ext == ".lnk":
                 return "Applications_NEEDS_CONFIRMATION"
 
-            # Normal files: count types
+            # -------------------------------------------------
+            # Count files by category
+            # -------------------------------------------------
             for category, extensions in CATEGORIES.items():
                 if ext in extensions:
                     counts[category] += 1
 
     # -------------------------------------------------
-    # If no files → consider it "Other"
+    # Empty or no recognized files → Other
     # -------------------------------------------------
     if file_count == 0:
         return "Other"
 
     # -------------------------------------------------
-    # Compute dominant category
+    # Find the dominant (most common) category
     # -------------------------------------------------
     dominant_category = max(counts, key=counts.get)
 
