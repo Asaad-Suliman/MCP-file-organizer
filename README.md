@@ -88,9 +88,14 @@ pip install uv
 
 <pre>
 Claude, use this path as the workspace:
-"F:\\Laptop\\Desktop"
+"YOUR_PATH_HERE"
+
+(Example on Windows: "C:\\Users\\YourName\\Desktop")
+(Example on macOS/Linux: "/Users/YourName/Desktop")
+
 Analyze everything and propose a clean folder structure.
 Ask for confirmation before organizing.
+Do not delete anything unless I explicitly confirm.
 </pre>
 
 <h3>Examples of what Claude can do:</h3>
@@ -187,4 +192,5 @@ python -m mcp_file_organizer
 
 <h2>📜 License</h2>
 <p>MIT License</p>
+
 
