@@ -6,6 +6,7 @@ from mcp.server.fastmcp import FastMCP
 from pathlib import Path
 from datetime import datetime
 import os
+from .workspace_config import WORKSPACE, HISTORY_FILE, set_workspace_path
 import json
 import hashlib
 
@@ -22,9 +23,6 @@ mcp = FastMCP("file-organizer")
 # -----------------------------
 # BASE PATHS
 # -----------------------------
-BASE_DIR = Path(__file__).resolve().parent
-WORKSPACE = BASE_DIR / "workspace"
-HISTORY_FILE = WORKSPACE / "_history.json"
 REDO_FILE = WORKSPACE / "_redo.json"
 RULES_FILE = WORKSPACE / "rules.json"
 PROTECTED_EXTENSIONS = {".py", ".ipynb", ".md", ".docx", ".txt", ".json"}
@@ -220,33 +218,22 @@ def permanent_delete(filename: str, confirm: str):
 def set_workspace(path: str):
     """
     Change the working directory (workspace) the MCP server operates in.
-    Only allows switching to existing folders.
+    This also updates HISTORY_FILE, so history/undo works correctly.
     """
 
-    global WORKSPACE
-
-    new_path = Path(path).expanduser().resolve()
-
-    # Check if path exists
-    if not new_path.exists():
-        return {
-            "status": "error",
-            "message": f"Path does not exist: {new_path}"
-        }
-
-    # Must be a folder
-    if not new_path.is_dir():
-        return {
-            "status": "error",
-            "message": f"Path is not a directory: {new_path}"
-        }
-
-    # Update workspace
-    WORKSPACE = new_path
+    try:
+        new_ws = set_workspace_path(path)
+    except FileNotFoundError as e:
+        return {"status": "error", "message": str(e)}
+    except NotADirectoryError as e:
+        return {"status": "error", "message": str(e)}
+    except Exception as e:
+        return {"status": "error", "message": f"Failed to set workspace: {e}"}
 
     return {
         "status": "ok",
-        "message": f"Workspace changed to: {WORKSPACE}"
+        "message": f"Workspace changed to: {new_ws}",
+        "workspace": str(new_ws)
     }
 
 
