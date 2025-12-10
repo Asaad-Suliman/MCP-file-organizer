@@ -7,16 +7,12 @@ from send2trash import send2trash
 from .step2_find_category import find_category
 from .step1_categories import CATEGORIES
 from .step2_detect_folder import detect_folder_type
-
+from ..workspace_config import WORKSPACE, HISTORY_FILE
 
 # ---------------------------------------------------
 # PATHS
 # ---------------------------------------------------
-BASE_DIR = Path(__file__).resolve().parent.parent
-WORKSPACE = BASE_DIR / "workspace"
-HISTORY_FILE = WORKSPACE / "_history.json"
 LOG_FILE = "organizer.log"
-
 
 # ---------------------------------------------------
 # HISTORY HELPERS
