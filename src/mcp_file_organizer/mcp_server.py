@@ -6,7 +6,7 @@ from mcp.server.fastmcp import FastMCP
 from pathlib import Path
 from datetime import datetime
 import os
-from .workspace_config import WORKSPACE, HISTORY_FILE, set_workspace_path
+from .workspace_config import get_workspace, get_history_file, set_workspace_path
 import json
 import hashlib
 
@@ -24,27 +24,35 @@ mcp = FastMCP("file-organizer")
 # -----------------------------
 # BASE PATHS
 # -----------------------------
-REDO_FILE = WORKSPACE / "_redo.json"
-RULES_FILE = WORKSPACE / "rules.json"
 PROTECTED_EXTENSIONS = {".py", ".ipynb", ".md", ".docx", ".txt", ".json"}
 APP_EXTENSIONS = [".exe", ".msi", ".bat", ".cmd"]
 APP_KEYWORDS = ["setup", "installer", "install", "app", "program", "bin", "windows", "driver"]
+
+
+def get_redo_file() -> Path:
+    """Return the redo-stack file path for the current workspace."""
+    return get_workspace() / "_redo.json"
+
+
+def get_rules_file() -> Path:
+    """Return the rules file path for the current workspace."""
+    return get_workspace() / "rules.json"
 
 
 # -----------------------------
 # RULES
 # -----------------------------
 def load_rules():
-    if RULES_FILE.exists():
+    if get_rules_file().exists():
         try:
-            with open(RULES_FILE, "r", encoding="utf-8") as f:
+            with open(get_rules_file(), "r", encoding="utf-8") as f:
                 return json.load(f)
         except:
             return []
     return []
 
 def save_rules(rules):
-    with open(RULES_FILE, "w", encoding="utf-8") as f:
+    with open(get_rules_file(), "w", encoding="utf-8") as f:
         json.dump(rules, f, indent=4)
 
 
@@ -59,12 +67,12 @@ def ping():
 @mcp.tool()
 def list_files():
     """Return a list of files in the workspace folder."""
-    if not WORKSPACE.exists():
+    if not get_workspace().exists():
         return {"status": "error", "message": "Workspace folder not found."}
 
     files = [
         item.name
-        for item in WORKSPACE.iterdir()
+        for item in get_workspace().iterdir()
         if item.is_file()
     ]
 
@@ -74,7 +82,7 @@ def list_files():
 @mcp.tool()
 def organize_workspace():
     """Organize all files inside the workspace folder."""
-    result = organize_folder(WORKSPACE)
+    result = organize_folder(get_workspace())
     return result
 
 
@@ -86,8 +94,8 @@ def move_file(filename: str, target_folder: str):
         move_file("photo.png", "Images")
     """
 
-    source = WORKSPACE / filename
-    destination_folder = WORKSPACE / target_folder
+    source = get_workspace() / filename
+    destination_folder = get_workspace() / target_folder
     destination_folder.mkdir(exist_ok=True)
 
     if not source.exists():
@@ -125,7 +133,7 @@ def list_subfolder(folder: str):
     Example:
         list_subfolder("Documents")
     """
-    target = WORKSPACE / folder
+    target = get_workspace() / folder
 
     if not target.exists():
         return {"status": "error", "message": f"Folder not found: {folder}"}
@@ -145,7 +153,7 @@ def safe_delete(filename: str):
     Never deletes permanently.
     """
 
-    file_path = WORKSPACE / filename
+    file_path = get_workspace() / filename
 
     # Check if file exists
     if not file_path.exists():
@@ -175,7 +183,7 @@ def permanent_delete(filename: str, confirm: str):
       - Protected files → confirm="PERMANENTLY DELETE <filename>"
     """
 
-    file_path = WORKSPACE / filename
+    file_path = get_workspace() / filename
 
     # Exists?
     if not file_path.exists():
@@ -255,18 +263,18 @@ def report_folder_stats():
     - total size
     - per-folder breakdown
     """
-    if not WORKSPACE.exists():
+    if not get_workspace().exists():
         return {"status": "error", "message": "Workspace does not exist."}
 
     stats = {
-        "workspace": str(WORKSPACE),
+        "workspace": str(get_workspace()),
         "total_files": 0,
         "total_size_bytes": 0,
         "folders": {}
     }
 
     # Loop through each folder inside WORKSPACE
-    for item in WORKSPACE.iterdir():
+    for item in get_workspace().iterdir():
         if item.is_dir():
             folder_name = item.name
             files = [f for f in item.iterdir() if f.is_file()]
@@ -290,7 +298,7 @@ def search_files(keyword: str):
     Matches partial names, case-insensitive.
     """
 
-    if not WORKSPACE.exists():
+    if not get_workspace().exists():
         return {"status": "error", "message": "Workspace does not exist."}
 
     keyword_lower = keyword.lower()
@@ -298,13 +306,13 @@ def search_files(keyword: str):
     results = []
 
     # Search only in the top-level workspace
-    for item in WORKSPACE.iterdir():
+    for item in get_workspace().iterdir():
         if item.is_file():
             if keyword_lower in item.name.lower():
                 results.append(item.name)
 
     # ALSO search inside subfolders (Documents, Images, etc.)
-    for folder in WORKSPACE.iterdir():
+    for folder in get_workspace().iterdir():
         if folder.is_dir():
             for file in folder.iterdir():
                 if file.is_file():
@@ -360,7 +368,7 @@ def apply_rules():
     results = []
 
     # Loop through workspace (recursive)
-    for item in WORKSPACE.rglob("*"):
+    for item in get_workspace().rglob("*"):
         if item.is_file():
             filename = item.name.lower()
 
@@ -373,7 +381,7 @@ def apply_rules():
                 # -----------------------------------
                 if cond["type"] == "extension":
                     if filename.endswith(cond["value"]):
-                        target = WORKSPACE / act["target"]
+                        target = get_workspace() / act["target"]
                         target.mkdir(exist_ok=True)
 
                         new_path = unique_destination(target / item.name)
@@ -408,7 +416,7 @@ def apply_rules():
                 # -----------------------------------
                 elif cond["type"] == "contains":
                     if cond["value"].lower() in filename:
-                        target = WORKSPACE / act["target"]
+                        target = get_workspace() / act["target"]
                         target.mkdir(exist_ok=True)
 
                         new_path = unique_destination(target / item.name)
@@ -455,7 +463,7 @@ def apply_rules():
 
                         # Action = MOVE
                         if act["type"] == "move":
-                            target = WORKSPACE / act["target"]
+                            target = get_workspace() / act["target"]
                             target.mkdir(exist_ok=True)
 
                             new_path = unique_destination(target / item.name)
@@ -537,7 +545,7 @@ def apply_rules():
 
                         # ACTION: MOVE
                         if act["type"] == "move":
-                            target = WORKSPACE / act["target"]
+                            target = get_workspace() / act["target"]
                             target.mkdir(exist_ok=True)
                             new_path = unique_destination(target / item.name)
 
@@ -620,7 +628,7 @@ def apply_rules():
 
                         # ACTION: MOVE
                         if act["type"] == "move":
-                            target = WORKSPACE / act["target"]
+                            target = get_workspace() / act["target"]
                             target.mkdir(exist_ok=True)
 
                             new_path = unique_destination(target / item.name)
@@ -686,14 +694,14 @@ def delete_duplicates():
     Always keeps one original copy.
     Deletes only duplicates using Trash (safe delete).
     """
-    if not WORKSPACE.exists():
+    if not get_workspace().exists():
         return {"status": "error", "message": "Workspace does not exist"}
 
     file_hashes = {}  # hash → list of files
     deleted_files = []
 
     # Scan workspace
-    for file in WORKSPACE.rglob("*"):
+    for file in get_workspace().rglob("*"):
         if file.is_file():
             try:
                 file_hash = hashlib.sha256(file.read_bytes()).hexdigest()
@@ -728,17 +736,17 @@ def move_duplicates():
     Find duplicate files and MOVE them into workspace/Duplicates.
     Always keeps one original copy in its place.
     """
-    if not WORKSPACE.exists():
+    if not get_workspace().exists():
         return {"status": "error", "message": "Workspace does not exist"}
 
-    duplicates_folder = WORKSPACE / "Duplicates"
+    duplicates_folder = get_workspace() / "Duplicates"
     duplicates_folder.mkdir(exist_ok=True)
 
     file_hashes = {}
     moved_files = []
 
     # Scan workspace
-    for file in WORKSPACE.rglob("*"):
+    for file in get_workspace().rglob("*"):
         if file.is_file():
             try:
                 file_hash = hashlib.sha256(file.read_bytes()).hexdigest()
@@ -791,7 +799,7 @@ def folder_health_report():
 
     warnings = []
 
-    for item in WORKSPACE.rglob("*"):
+    for item in get_workspace().rglob("*"):
         if item.is_dir():
             total_folders += 1
             continue
@@ -860,13 +868,13 @@ def archive_old_files(days: int = 30):
     """
 
     now = datetime.now()
-    archive_root = WORKSPACE / "Archive"
+    archive_root = get_workspace() / "Archive"
     archive_root.mkdir(exist_ok=True)
 
     moved = []
     skipped = []
 
-    for item in WORKSPACE.rglob("*"):
+    for item in get_workspace().rglob("*"):
         if not item.is_file():
             continue
 
@@ -933,7 +941,7 @@ def find_duplicates(mode: str = "hash"):
     - "quick": fast (name + size)
     """
 
-    files = [f for f in WORKSPACE.rglob("*") if f.is_file()]
+    files = [f for f in get_workspace().rglob("*") if f.is_file()]
 
     duplicates = {}
 
@@ -993,8 +1001,8 @@ def summarize_workspace():
         "warnings": []
     }
 
-    files = [f for f in WORKSPACE.rglob("*") if f.is_file()]
-    folders = [d for d in WORKSPACE.rglob("*") if d.is_dir()]
+    files = [f for f in get_workspace().rglob("*") if f.is_file()]
+    folders = [d for d in get_workspace().rglob("*") if d.is_dir()]
 
     summary["total_files"] = len(files)
     summary["total_folders"] = len(folders)
@@ -1084,7 +1092,7 @@ def preview_rules():
 
     preview = []
 
-    for item in WORKSPACE.rglob("*"):
+    for item in get_workspace().rglob("*"):
         if not item.is_file():
             continue
 
@@ -1198,21 +1206,21 @@ def save_history(entry):
     """Append a history entry to the history file."""
     history = []
 
-    if HISTORY_FILE.exists():
+    if get_history_file().exists():
         try:
-            history = json.loads(HISTORY_FILE.read_text())
+            history = json.loads(get_history_file().read_text())
         except:
             history = []
 
     history.append(entry)
-    HISTORY_FILE.write_text(json.dumps(history, indent=2))
+    get_history_file().write_text(json.dumps(history, indent=2))
 
 
 def load_history():
     """Load the full history list."""
-    if HISTORY_FILE.exists():
+    if get_history_file().exists():
         try:
-            return json.loads(HISTORY_FILE.read_text())
+            return json.loads(get_history_file().read_text())
         except:
             return []
     return []
@@ -1220,7 +1228,7 @@ def load_history():
 
 def pop_last_history():
     """Remove last entry from history and push it into redo stack."""
-    if not HISTORY_FILE.exists():
+    if not get_history_file().exists():
         return None
 
     history = load_history()
@@ -1230,7 +1238,7 @@ def pop_last_history():
 
     # Remove the last action
     last = history.pop()
-    HISTORY_FILE.write_text(json.dumps(history, indent=2))
+    get_history_file().write_text(json.dumps(history, indent=2))
 
     # Load redo stack (ensure list)
     redo_list = load_redo() or []
@@ -1241,16 +1249,16 @@ def pop_last_history():
 
 
 def load_redo():
-    if REDO_FILE.exists():
+    if get_redo_file().exists():
         try:
-            return json.loads(REDO_FILE.read_text())
+            return json.loads(get_redo_file().read_text())
         except:
             return []
     return []
 
 
 def save_redo(redo_list):
-    REDO_FILE.write_text(json.dumps(redo_list, indent=2))
+    get_redo_file().write_text(json.dumps(redo_list, indent=2))
 
 
 @mcp.tool()
@@ -1375,13 +1383,13 @@ def reset_workspace():
     Does NOT overwrite files (adds a number if name already exists).
     """
 
-    if not WORKSPACE.exists():
+    if not get_workspace().exists():
         return {"status": "error", "message": "Workspace does not exist."}
 
     moved = []
     skipped = []
 
-    for folder in WORKSPACE.iterdir():
+    for folder in get_workspace().iterdir():
         # skip files in root
         if folder.is_file():
             continue
@@ -1398,7 +1406,7 @@ def reset_workspace():
                     continue
 
                 # final target in root
-                target = unique_destination(WORKSPACE / file.name)
+                target = unique_destination(get_workspace() / file.name)
 
                 try:
                     file.rename(target)
@@ -1436,12 +1444,12 @@ def move_app_folder(folder_name: str, target_category: str, confirm: str):
             "message": "Confirmation missing. Use confirm='YES' to move app folders."
         }
 
-    folder_path = WORKSPACE / folder_name
+    folder_path = get_workspace() / folder_name
 
     if not folder_path.exists() or not folder_path.is_dir():
         return {"status": "error", "message": f"Folder not found: {folder_name}"}
 
-    target_folder = WORKSPACE / target_category
+    target_folder = get_workspace() / target_category
     target_folder.mkdir(exist_ok=True)
 
     new_path = unique_destination(target_folder / folder_name)
@@ -1472,12 +1480,12 @@ def list_app_folders():
     Returns a clean list so Claude can ask for confirmation.
     """
 
-    if not WORKSPACE.exists():
+    if not get_workspace().exists():
         return {"status": "error", "message": "Workspace does not exist."}
 
     app_folders = []
 
-    for folder in WORKSPACE.iterdir():
+    for folder in get_workspace().iterdir():
         if not folder.is_dir():
             continue
 
@@ -1496,7 +1504,7 @@ def list_app_folders():
 
     return {
         "status": "ok",
-        "workspace": str(WORKSPACE),
+        "workspace": str(get_workspace()),
         "detected_app_folders": sorted(set(app_folders))
     }
 
@@ -1507,16 +1515,16 @@ def move_app_folders():
     Uses same detection logic as list_app_folders().
     """
 
-    if not WORKSPACE.exists():
+    if not get_workspace().exists():
         return {"status": "error", "message": "Workspace does not exist."}
 
-    apps_folder = WORKSPACE / "Apps"
+    apps_folder = get_workspace() / "Apps"
     apps_folder.mkdir(exist_ok=True)
 
     moved = []
     skipped = []
 
-    for folder in WORKSPACE.iterdir():
+    for folder in get_workspace().iterdir():
         if not folder.is_dir():
             continue
 
@@ -1565,12 +1573,12 @@ def organize_all_folders():
     Uses detect_folder_type() for classification.
     """
 
-    if not WORKSPACE.exists():
+    if not get_workspace().exists():
         return {"status": "error", "message": "Workspace does not exist."}
 
     results = []
 
-    for folder in WORKSPACE.iterdir():
+    for folder in get_workspace().iterdir():
         if not folder.is_dir():
             continue
 
@@ -1588,7 +1596,7 @@ def organize_all_folders():
             })
             continue
 
-        target_folder = WORKSPACE / folder_type
+        target_folder = get_workspace() / folder_type
         target_folder.mkdir(exist_ok=True)
 
         new_path = unique_destination(target_folder / folder.name)
@@ -1680,7 +1688,7 @@ def move_folder_back(folder_name: str, original_path: str):
         move_folder_back("Blender", "F:/Laptop/Desktop")
     """
 
-    folder_path = WORKSPACE / folder_name
+    folder_path = get_workspace() / folder_name
     target_path = Path(original_path).expanduser().resolve()
 
     # Validate folder

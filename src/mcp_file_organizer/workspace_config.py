@@ -6,6 +6,16 @@ WORKSPACE = BASE_DIR / "workspace"
 HISTORY_FILE = WORKSPACE / "_history.json"
 
 
+def get_workspace() -> Path:
+    """Return the current workspace path."""
+    return WORKSPACE
+
+
+def get_history_file() -> Path:
+    """Return the current history file path."""
+    return HISTORY_FILE
+
+
 def set_workspace_path(path: str):
     """
     Update WORKSPACE and HISTORY_FILE dynamically.

@@ -7,7 +7,7 @@ from send2trash import send2trash
 from .step2_find_category import find_category
 from .step1_categories import CATEGORIES
 from .step2_detect_folder import detect_folder_type
-from ..workspace_config import WORKSPACE, HISTORY_FILE
+from ..workspace_config import get_workspace, get_history_file
 from ..paths import unique_destination
 
 # ---------------------------------------------------
@@ -22,23 +22,23 @@ def save_history(entry):
     """Append a new history entry to the _history.json file."""
     history = []
 
-    if HISTORY_FILE.exists():
+    if get_history_file().exists():
         try:
-            history = json.loads(HISTORY_FILE.read_text())
+            history = json.loads(get_history_file().read_text())
         except:
             history = []
 
     history.append(entry)
-    HISTORY_FILE.write_text(json.dumps(history, indent=2))
+    get_history_file().write_text(json.dumps(history, indent=2))
 
 
 def pop_last_history():
     """Pop last entry from history file and return it."""
-    if not HISTORY_FILE.exists():
+    if not get_history_file().exists():
         return None
 
     try:
-        history = json.loads(HISTORY_FILE.read_text())
+        history = json.loads(get_history_file().read_text())
     except:
         return None
 
@@ -46,7 +46,7 @@ def pop_last_history():
         return None
 
     last = history.pop()
-    HISTORY_FILE.write_text(json.dumps(history, indent=2))
+    get_history_file().write_text(json.dumps(history, indent=2))
     return last
 
 
