@@ -11,6 +11,7 @@ import json
 import hashlib
 
 from .project_code.organizer import organize_folder
+from .paths import unique_destination
 from send2trash import send2trash
 
 
@@ -93,7 +94,7 @@ def move_file(filename: str, target_folder: str):
         return {"status": "error", "message": f"File not found: {filename}"}
 
     try:
-        new_path = destination_folder / filename
+        new_path = unique_destination(destination_folder / filename)
         source.rename(new_path)
 
         #  Add history tracking
@@ -375,7 +376,7 @@ def apply_rules():
                         target = WORKSPACE / act["target"]
                         target.mkdir(exist_ok=True)
 
-                        new_path = target / item.name
+                        new_path = unique_destination(target / item.name)
                         try:
                             item.rename(new_path)
 
@@ -410,7 +411,7 @@ def apply_rules():
                         target = WORKSPACE / act["target"]
                         target.mkdir(exist_ok=True)
 
-                        new_path = target / item.name
+                        new_path = unique_destination(target / item.name)
                         try:
                             item.rename(new_path)
 
@@ -457,7 +458,7 @@ def apply_rules():
                             target = WORKSPACE / act["target"]
                             target.mkdir(exist_ok=True)
 
-                            new_path = target / item.name
+                            new_path = unique_destination(target / item.name)
                             try:
                                 item.rename(new_path)
 
@@ -538,7 +539,7 @@ def apply_rules():
                         if act["type"] == "move":
                             target = WORKSPACE / act["target"]
                             target.mkdir(exist_ok=True)
-                            new_path = target / item.name
+                            new_path = unique_destination(target / item.name)
 
                             try:
                                 item.rename(new_path)
@@ -622,7 +623,7 @@ def apply_rules():
                             target = WORKSPACE / act["target"]
                             target.mkdir(exist_ok=True)
 
-                            new_path = target / item.name
+                            new_path = unique_destination(target / item.name)
                             try:
                                 item.rename(new_path)
 
@@ -755,7 +756,7 @@ def move_duplicates():
             duplicates = group[1:]  # skip original (first file)
             for dup in duplicates:
                 try:
-                    target_path = duplicates_folder / dup.name
+                    target_path = unique_destination(duplicates_folder / dup.name)
                     dup.rename(target_path)
                     moved_files.append(str(target_path))
                 except Exception as e:
@@ -884,7 +885,7 @@ def archive_old_files(days: int = 30):
         target_folder = archive_root / str(year) / month
         target_folder.mkdir(parents=True, exist_ok=True)
 
-        new_path = target_folder / item.name
+        new_path = unique_destination(target_folder / item.name)
 
         try:
             item.rename(new_path)
@@ -1276,6 +1277,7 @@ def undo_last_action():
 
         # If the file exists in destination → move it back
         if dst.exists():
+            src = unique_destination(src)
             dst.rename(src)
 
         # Save this undo into redo stack
@@ -1321,6 +1323,7 @@ def redo_last_action():
 
         if old_path.exists():
             try:
+                new_path = unique_destination(new_path)
                 old_path.rename(new_path)
             except Exception as e:
                 return {"status": "error", "message": str(e)}
@@ -1342,6 +1345,7 @@ def redo_last_action():
 
         if old_path.exists():
             try:
+                new_path = unique_destination(new_path)
                 old_path.rename(new_path)
             except Exception as e:
                 return {"status": "error", "message": str(e)}
@@ -1394,22 +1398,7 @@ def reset_workspace():
                     continue
 
                 # final target in root
-                target = WORKSPACE / file.name
-
-                # if file with same name exists → rename
-                if target.exists():
-                    base = file.stem
-                    ext = file.suffix
-                    counter = 1
-
-                    # generate unique name: filename(1).png, filename(2).png, etc.
-                    while True:
-                        new_name = f"{base}({counter}){ext}"
-                        new_target = WORKSPACE / new_name
-                        if not new_target.exists():
-                            target = new_target
-                            break
-                        counter += 1
+                target = unique_destination(WORKSPACE / file.name)
 
                 try:
                     file.rename(target)
@@ -1455,7 +1444,7 @@ def move_app_folder(folder_name: str, target_category: str, confirm: str):
     target_folder = WORKSPACE / target_category
     target_folder.mkdir(exist_ok=True)
 
-    new_path = target_folder / folder_name
+    new_path = unique_destination(target_folder / folder_name)
 
     try:
         folder_path.rename(new_path)
@@ -1544,7 +1533,7 @@ def move_app_folders():
                 break
 
         if name_matches or contains_installer:
-            new_path = apps_folder / folder.name
+            new_path = unique_destination(apps_folder / folder.name)
             try:
                 folder.rename(new_path)
                 moved.append(str(new_path))
@@ -1602,7 +1591,7 @@ def organize_all_folders():
         target_folder = WORKSPACE / folder_type
         target_folder.mkdir(exist_ok=True)
 
-        new_path = target_folder / folder.name
+        new_path = unique_destination(target_folder / folder.name)
         try:
             folder.rename(new_path)
 
@@ -1658,6 +1647,7 @@ def undo_folder_moves():
 
         if new_path.exists():
             try:
+                old_path = unique_destination(old_path)
                 new_path.rename(old_path)
                 undone.append({
                     "folder": new_path.name,
@@ -1708,7 +1698,7 @@ def move_folder_back(folder_name: str, original_path: str):
         return {"status": "error", "message": f"Target path is not a directory: {target_path}"}
 
     # Build final destination
-    new_location = target_path / folder_name
+    new_location = unique_destination(target_path / folder_name)
 
     try:
         folder_path.rename(new_location)

@@ -8,6 +8,7 @@ from .step2_find_category import find_category
 from .step1_categories import CATEGORIES
 from .step2_detect_folder import detect_folder_type
 from ..workspace_config import WORKSPACE, HISTORY_FILE
+from ..paths import unique_destination
 
 # ---------------------------------------------------
 # PATHS
@@ -98,7 +99,7 @@ def organize_folder(path="."):
             if item.stat().st_size == 0:
                 target_folder = folder / "Empty_Files"
                 target_folder.mkdir(exist_ok=True)
-                destination = target_folder / item.name
+                destination = unique_destination(target_folder / item.name)
 
                 try:
                     item.rename(destination)
@@ -148,7 +149,7 @@ def organize_folder(path="."):
             target_folder = folder / category
             target_folder.mkdir(exist_ok=True)
 
-            destination = target_folder / item.name
+            destination = unique_destination(target_folder / item.name)
 
             try:
                 item.rename(destination)
@@ -195,7 +196,7 @@ def organize_folder(path="."):
             target_folder = folder / folder_type
             target_folder.mkdir(exist_ok=True)
 
-            new_path = target_folder / item.name
+            new_path = unique_destination(target_folder / item.name)
 
             try:
                 item.rename(new_path)
@@ -241,6 +242,7 @@ def undo_last_folder_move():
 
     if new_path.exists():
         try:
+            old_path = unique_destination(old_path)
             new_path.rename(old_path)
             return {
                 "status": "ok",
