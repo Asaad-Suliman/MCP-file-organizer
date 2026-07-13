@@ -679,43 +679,6 @@ def apply_rules():
 
 
 @mcp.tool()
-def find_duplicates():
-    """
-    Scan the workspace and find duplicate files using SHA-256 hashing.
-    Returns groups of duplicates.
-    """
-    if not WORKSPACE.exists():
-        return {"status": "error", "message": "Workspace does not exist"}
-
-    file_hashes = {}  # hash → list of files
-    duplicates = {}
-
-    for file in WORKSPACE.rglob("*"):
-        if file.is_file():
-            # Compute hash
-            try:
-                file_hash = hashlib.sha256(file.read_bytes()).hexdigest()
-            except Exception as e:
-                continue
-
-            # If hash already exists → duplicate found
-            if file_hash in file_hashes:
-                file_hashes[file_hash].append(str(file))
-            else:
-                file_hashes[file_hash] = [str(file)]
-
-    # Only keep groups with more than one file
-    for h, group in file_hashes.items():
-        if len(group) > 1:
-            duplicates[h] = group
-
-    return {
-        "status": "ok",
-        "duplicates": duplicates
-    }
-
-
-@mcp.tool()
 def delete_duplicates():
     """
     Find and safely delete duplicate files.
@@ -994,7 +957,10 @@ def find_duplicates(mode: str = "hash"):
     seen_hashes = {}
 
     for file in files:
-        h = file_hash(file)
+        try:
+            h = file_hash(file)
+        except Exception:
+            continue
         if h in seen_hashes:
             duplicates.setdefault(h, []).append(str(file))
         else:
