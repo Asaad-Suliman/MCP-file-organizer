@@ -1,8 +1,10 @@
 from pathlib import Path
 
-# Default: folder next to the installed package (for local testing)
-BASE_DIR = Path(__file__).resolve().parent
-WORKSPACE = BASE_DIR / "workspace"
+# Default: a stable, user-owned folder — not inside the installed package,
+# which resolves inside the uv cache when installed via uvx and disappears
+# on reinstall.
+WORKSPACE = Path.home() / "mcp-file-organizer-workspace"
+WORKSPACE.mkdir(parents=True, exist_ok=True)
 
 # Server state (history/redo/rules) lives outside any folder the server
 # scans, so organize/archive/dedup tools never touch it as if it were user
