@@ -19,7 +19,7 @@ LOG_FILE = "organizer.log"
 # HISTORY HELPERS
 # ---------------------------------------------------
 def save_history(entry):
-    """Append a new history entry to the _history.json file."""
+    """Append a new history entry to the history file."""
     history = []
 
     if get_history_file().exists():

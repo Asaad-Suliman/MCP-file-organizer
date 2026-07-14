@@ -6,7 +6,7 @@ from mcp.server.fastmcp import FastMCP
 from pathlib import Path
 from datetime import datetime
 import os
-from .workspace_config import get_workspace, get_history_file, set_workspace_path
+from .workspace_config import get_workspace, get_history_file, get_state_dir, set_workspace_path
 import json
 import hashlib
 
@@ -31,13 +31,13 @@ APP_KEYWORDS = ["setup", "installer", "install", "app", "program", "bin", "windo
 
 
 def get_redo_file() -> Path:
-    """Return the redo-stack file path for the current workspace."""
-    return get_workspace() / "_redo.json"
+    """Return the redo-stack file path."""
+    return get_state_dir() / "redo.json"
 
 
 def get_rules_file() -> Path:
-    """Return the rules file path for the current workspace."""
-    return get_workspace() / "rules.json"
+    """Return the rules file path."""
+    return get_state_dir() / "rules.json"
 
 
 # -----------------------------
@@ -228,7 +228,8 @@ def permanent_delete(filename: str, confirm: str):
 def set_workspace(path: str):
     """
     Change the working directory (workspace) the MCP server operates in.
-    This also updates HISTORY_FILE, so history/undo works correctly.
+    History/redo/rules state is stored outside the workspace and is
+    unaffected by this change.
     """
 
     try:

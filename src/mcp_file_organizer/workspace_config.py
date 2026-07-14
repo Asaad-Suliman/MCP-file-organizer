@@ -3,7 +3,15 @@ from pathlib import Path
 # Default: folder next to the installed package (for local testing)
 BASE_DIR = Path(__file__).resolve().parent
 WORKSPACE = BASE_DIR / "workspace"
-HISTORY_FILE = WORKSPACE / "_history.json"
+
+# Server state (history/redo/rules) lives outside any folder the server
+# scans, so organize/archive/dedup tools never touch it as if it were user
+# data — and it stays valid even after set_workspace_path() changes the
+# active workspace.
+STATE_DIR = Path.home() / ".mcp-file-organizer"
+STATE_DIR.mkdir(parents=True, exist_ok=True)
+
+HISTORY_FILE = STATE_DIR / "history.json"
 
 
 def get_workspace() -> Path:
@@ -11,18 +19,23 @@ def get_workspace() -> Path:
     return WORKSPACE
 
 
+def get_state_dir() -> Path:
+    """Return the directory holding the server's own state files."""
+    return STATE_DIR
+
+
 def get_history_file() -> Path:
-    """Return the current history file path."""
+    """Return the history file path."""
     return HISTORY_FILE
 
 
 def set_workspace_path(path: str):
     """
-    Update WORKSPACE and HISTORY_FILE dynamically.
+    Update WORKSPACE.
 
     - path: any folder path (e.g. "F:\\Laptop\\Desktop")
     """
-    global WORKSPACE, HISTORY_FILE
+    global WORKSPACE
 
     new_path = Path(path).expanduser().resolve()
 
@@ -33,6 +46,5 @@ def set_workspace_path(path: str):
         raise NotADirectoryError(f"Workspace path is not a directory: {new_path}")
 
     WORKSPACE = new_path
-    HISTORY_FILE = WORKSPACE / "_history.json"
 
     return WORKSPACE
