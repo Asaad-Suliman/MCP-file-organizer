@@ -1,5 +1,5 @@
 from pathlib import Path
-from .step1_categories import CATEGORIES
+from .categories import CATEGORIES
 
 
 SYSTEM_FILES = ["desktop.ini", "thumbs.db"]
@@ -8,7 +8,7 @@ SYSTEM_FILES = ["desktop.ini", "thumbs.db"]
 def find_category(file_path):
     """Return the correct category for a file based on extension or name."""
 
-    name = str(file_path).lower()
+    name = Path(file_path).name.lower()
     ext = Path(file_path).suffix.lower()
 
     # --------------------------------------------------

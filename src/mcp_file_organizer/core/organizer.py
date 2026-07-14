@@ -1,12 +1,12 @@
+import logging
 from pathlib import Path
 from datetime import datetime
-from send2trash import send2trash
 
 # Local imports
-from .step2_find_category import find_category
-from .step1_categories import CATEGORIES
-from .step2_detect_folder import detect_folder_type
+from .classify import find_category
+from .detect_folder import detect_folder_type
 from ..paths import unique_destination
+from ..workspace_config import get_state_dir
 from ..history import (
     save_history,
     pop_last_history,
@@ -16,10 +16,12 @@ from ..history import (
     ACTION_MOVE_FOLDER_BULK,
 )
 
+logger = logging.getLogger(__name__)
+
 # ---------------------------------------------------
 # PATHS
 # ---------------------------------------------------
-LOG_FILE = "organizer.log"
+LOG_FILE = get_state_dir() / "organizer.log"
 
 
 # ---------------------------------------------------
@@ -39,7 +41,7 @@ def organize_folder(path="."):
 
     if not folder.exists():
         message = f"Error: Folder not found - {folder}"
-        print(message)
+        logger.error(message)
         log(message)
         return {"status": "error", "message": message}
 
@@ -80,7 +82,7 @@ def organize_folder(path="."):
                         "from": str(item),
                         "to": str(destination)
                     })
-                    print(f"Moved EMPTY file: {item.name} → Empty_Files/")
+                    logger.info(f"Moved EMPTY file: {item.name} → Empty_Files/")
                     log(f"Moved EMPTY file: {item.name} → Empty_Files/")
                     moved_items.append({
                         "type": "empty_file",
@@ -88,7 +90,7 @@ def organize_folder(path="."):
                         "category": "Empty_Files"
                     })
                 except Exception as e:
-                    print(f"Could not move empty file {item.name}: {e}")
+                    logger.error(f"Could not move empty file {item.name}: {e}")
                     log(f"Error moving empty file {item.name}: {e}")
 
                 continue   # VERY IMPORTANT
@@ -133,7 +135,7 @@ def organize_folder(path="."):
                     "category": category
                 })
 
-                print(f"Moved file: {item.name} → {category}/")
+                logger.info(f"Moved file: {item.name} → {category}/")
                 log(f"Moved file: {item.name} → {category}/")
 
                 moved_items.append({
@@ -144,7 +146,7 @@ def organize_folder(path="."):
 
             except Exception as e:
                 log(f"Error moving file {item.name}: {e}")
-                print(f"Could not move file {item.name}: {e}")
+                logger.error(f"Could not move file {item.name}: {e}")
 
         # -------------------------------------------------
         # 2) FOLDER HANDLING
@@ -180,7 +182,7 @@ def organize_folder(path="."):
                     "folder_type": folder_type
                 })
 
-                print(f"Moved folder: {item.name} → {folder_type}/")
+                logger.info(f"Moved folder: {item.name} → {folder_type}/")
                 log(f"Moved folder: {item.name} → {folder_type}/")
 
                 moved_items.append({
@@ -191,7 +193,7 @@ def organize_folder(path="."):
 
             except Exception as e:
                 log(f"Error moving folder {item.name}: {e}")
-                print(f"Could not move folder {item.name}: {e}")
+                logger.error(f"Could not move folder {item.name}: {e}")
 
     return {"status": "ok", "moved": moved_items}
 

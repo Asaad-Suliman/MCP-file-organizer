@@ -10,8 +10,8 @@ from .workspace_config import get_workspace, get_state_dir, set_workspace_path
 import json
 import hashlib
 
-from .project_code.organizer import organize_folder
-from .project_code.step2_detect_folder import detect_folder_type
+from .core.organizer import organize_folder
+from .core.detect_folder import detect_folder_type
 from .paths import unique_destination, resolve_in_workspace
 from .history import (
     save_history,

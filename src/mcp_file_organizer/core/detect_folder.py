@@ -1,5 +1,5 @@
 from pathlib import Path
-from .step1_categories import CATEGORIES
+from .categories import CATEGORIES
 
 
 def detect_folder_type(folder_path):
