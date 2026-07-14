@@ -11,6 +11,7 @@ import json
 import hashlib
 
 from .project_code.organizer import organize_folder
+from .project_code.step2_detect_folder import detect_folder_type
 from .paths import unique_destination
 from send2trash import send2trash
 
