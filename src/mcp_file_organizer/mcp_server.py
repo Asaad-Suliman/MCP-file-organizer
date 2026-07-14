@@ -369,8 +369,11 @@ def apply_rules():
     rules = sorted(rules, key=lambda r: r.get("priority", 50))
     results = []
 
-    # Loop through workspace (recursive)
-    for item in get_workspace().rglob("*"):
+    # Loop through workspace (recursive) — snapshot the listing first since
+    # this loop renames files into workspace subfolders while iterating.
+    files = list(get_workspace().rglob("*"))
+
+    for item in files:
         if item.is_file():
             filename = item.name.lower()
 
@@ -404,7 +407,7 @@ def apply_rules():
                                 "rule": "extension",
                                 "target": act["target"]
                             })
-                            continue   
+                            break
 
                         except Exception as e:
                             results.append({
@@ -439,7 +442,7 @@ def apply_rules():
                                 "rule": "contains",
                                 "target": act["target"]
                             })
-                            continue   
+                            break
 
                         except Exception as e:
                             results.append({
@@ -488,7 +491,7 @@ def apply_rules():
                                     "rule": "age",
                                     "target": act["target"]
                                 })
-                                continue   
+                                break
 
                             except Exception as e:
                                 results.append({
@@ -516,7 +519,7 @@ def apply_rules():
                                     "days_old": file_age_days,
                                     "rule": "age"
                                 })
-                                continue   
+                                break
 
                             except Exception as e:
                                 results.append({
@@ -570,7 +573,7 @@ def apply_rules():
                                     "rule_value": cond["value"],
                                     "target": act["target"]
                                 })
-                                continue   
+                                break
 
                             except Exception as e:
                                 results.append({
@@ -597,7 +600,7 @@ def apply_rules():
                                     "action": "safe_deleted_due_to_size",
                                     "size_bytes": file_size,
                                 })
-                                continue   
+                                break
 
                             except Exception as e:
                                 results.append({
@@ -651,7 +654,7 @@ def apply_rules():
                                     "rule": "temp",
                                     "target": act["target"]
                                 })
-                                continue   
+                                break
 
                             except Exception as e:
                                 results.append({
@@ -677,7 +680,7 @@ def apply_rules():
                                     "action": "temp_file_deleted",
                                     "rule": "temp"
                                 })
-                                continue   
+                                break
 
                             except Exception as e:
                                 results.append({
