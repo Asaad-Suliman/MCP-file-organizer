@@ -1,5 +1,21 @@
 from pathlib import Path
 
+from .workspace_config import get_workspace
+
+
+def resolve_in_workspace(name: str) -> Path:
+    """
+    Resolve `name` against the current workspace, rejecting anything that
+    escapes it via ".." components or an absolute path.
+    """
+    workspace = get_workspace().resolve()
+    candidate = (workspace / name).resolve()
+
+    if not candidate.is_relative_to(workspace):
+        raise ValueError(f"Path escapes workspace: {name}")
+
+    return candidate
+
 
 def unique_destination(path: Path) -> Path:
     """

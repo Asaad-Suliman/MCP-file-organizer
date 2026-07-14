@@ -12,7 +12,7 @@ import hashlib
 
 from .project_code.organizer import organize_folder
 from .project_code.step2_detect_folder import detect_folder_type
-from .paths import unique_destination
+from .paths import unique_destination, resolve_in_workspace
 from send2trash import send2trash
 
 
@@ -95,8 +95,12 @@ def move_file(filename: str, target_folder: str):
         move_file("photo.png", "Images")
     """
 
-    source = get_workspace() / filename
-    destination_folder = get_workspace() / target_folder
+    try:
+        source = resolve_in_workspace(filename)
+        destination_folder = resolve_in_workspace(target_folder)
+    except ValueError as e:
+        return {"status": "error", "message": str(e)}
+
     destination_folder.mkdir(exist_ok=True)
 
     if not source.exists():
@@ -134,7 +138,10 @@ def list_subfolder(folder: str):
     Example:
         list_subfolder("Documents")
     """
-    target = get_workspace() / folder
+    try:
+        target = resolve_in_workspace(folder)
+    except ValueError as e:
+        return {"status": "error", "message": str(e)}
 
     if not target.exists():
         return {"status": "error", "message": f"Folder not found: {folder}"}
@@ -154,7 +161,10 @@ def safe_delete(filename: str):
     Never deletes permanently.
     """
 
-    file_path = get_workspace() / filename
+    try:
+        file_path = resolve_in_workspace(filename)
+    except ValueError as e:
+        return {"status": "error", "message": str(e)}
 
     # Check if file exists
     if not file_path.exists():
@@ -184,7 +194,10 @@ def permanent_delete(filename: str, confirm: str):
       - Protected files → confirm="PERMANENTLY DELETE <filename>"
     """
 
-    file_path = get_workspace() / filename
+    try:
+        file_path = resolve_in_workspace(filename)
+    except ValueError as e:
+        return {"status": "error", "message": str(e)}
 
     # Exists?
     if not file_path.exists():
@@ -1693,7 +1706,11 @@ def move_folder_back(folder_name: str, original_path: str):
         move_folder_back("Blender", "F:/Laptop/Desktop")
     """
 
-    folder_path = get_workspace() / folder_name
+    try:
+        folder_path = resolve_in_workspace(folder_name)
+    except ValueError as e:
+        return {"status": "error", "message": str(e)}
+
     target_path = Path(original_path).expanduser().resolve()
 
     # Validate folder
