@@ -5,7 +5,6 @@
 from mcp.server.fastmcp import FastMCP
 from pathlib import Path
 from datetime import datetime
-import os
 from .workspace_config import get_workspace, get_state_dir, set_workspace_path
 import json
 import hashlib
@@ -42,7 +41,6 @@ mcp = FastMCP("file-organizer")
 # -----------------------------
 # BASE PATHS
 # -----------------------------
-PROTECTED_EXTENSIONS = {".py", ".ipynb", ".md", ".docx", ".txt", ".json"}
 APP_EXTENSIONS = [".exe", ".msi", ".bat", ".cmd"]
 APP_KEYWORDS = ["setup", "installer", "install", "app", "program", "bin", "windows", "driver"]
 
@@ -138,12 +136,6 @@ def move_file(filename: str, target_folder: str):
 
 
 @mcp.tool()
-def debug_cwd():
-    """Return the current working directory the MCP server sees."""
-    return {"cwd": os.getcwd()}
-
-
-@mcp.tool()
 def list_subfolder(folder: str):
     """
     List all files inside a subfolder of the workspace.
@@ -195,58 +187,6 @@ def safe_delete(filename: str):
         return {"status": "ok", "message": f"Moved {filename} to Trash."}
     except Exception as e:
         return {"status": "error", "message": f"Failed to delete: {str(e)}"}
-
-
-@mcp.tool()
-def permanent_delete(filename: str, confirm: str):
-    """
-    Permanently delete a file from the workspace.
-    Requires confirmation:
-      - Normal files → confirm="yes, permanently delete"
-      - Protected files → confirm="PERMANENTLY DELETE <filename>"
-    """
-
-    try:
-        file_path = resolve_in_workspace(filename)
-    except ValueError as e:
-        return {"status": "error", "message": str(e)}
-
-    # Exists?
-    if not file_path.exists():
-        return {"status": "error", "message": f"File not found: {filename}"}
-
-    # Determine if file is protected
-    ext = file_path.suffix.lower()
-    is_protected = ext in PROTECTED_EXTENSIONS
-
-    # Protected files require exact confirmation phrase
-    if is_protected:
-        required_text = f"PERMANENTLY DELETE {filename}"
-        if confirm != required_text:
-            return {
-                "status": "error",
-                "message": (
-                    f"Protected file. To delete, confirm exactly: "
-                    f"'{required_text}'"
-                )
-            }
-
-    # Normal files need basic confirmation
-    else:
-        if confirm.lower().strip() != "yes, permanently delete":
-            return {
-                "status": "error",
-                "message": "Confirmation missing. Use: yes, permanently delete"
-            }
-
-    # Try deleting
-    try:
-        file_path.unlink()
-        return {"status": "ok", "message": f"{filename} PERMANENTLY deleted."}
-    except PermissionError:
-        return {"status": "error", "message": "Permission denied."}
-    except Exception as e:
-        return {"status": "error", "message": f"Unexpected error: {str(e)}"}
 
 
 @mcp.tool()
@@ -389,6 +329,10 @@ def apply_rules():
     - age-based rules (older than X days)
     - size rules
     - temp rules
+
+    WARNING: a rule with a safe_delete action sends matching files to the
+    system Trash immediately and irreversibly — safe_delete history entries
+    cannot be undone.
     """
     rules = load_rules()
     rules = sorted(rules, key=lambda r: r.get("priority", 50))
@@ -797,6 +741,12 @@ def move_duplicates():
                     target_path = unique_destination(duplicates_folder / dup.name)
                     dup.rename(target_path)
                     moved_files.append(str(target_path))
+
+                    save_history({
+                        "type": ACTION_MOVE_FILE,
+                        "from": str(dup),
+                        "to": str(target_path)
+                    })
                 except Exception as e:
                     moved_files.append(f"ERROR moving {dup}: {e}")
 
@@ -932,6 +882,12 @@ def archive_old_files(days: int = 30):
                 "from": str(item.parent),
                 "to": str(target_folder),
                 "age_days": age_days
+            })
+
+            save_history({
+                "type": ACTION_MOVE_FILE,
+                "from": str(item),
+                "to": str(new_path)
             })
         except Exception as e:
             moved.append({
@@ -1378,6 +1334,12 @@ def reset_workspace():
                         "from": str(folder),
                         "to": str(target)
                     })
+
+                    save_history({
+                        "type": ACTION_MOVE_FILE,
+                        "from": str(file),
+                        "to": str(target)
+                    })
                 except Exception as e:
                     skipped.append({
                         "file": file.name,
@@ -1472,11 +1434,19 @@ def list_app_folders():
     }
 
 @mcp.tool()
-def move_app_folders():
+def move_app_folders(confirm: str):
     """
     Move all detected application/installer folders into workspace/Apps/.
     Uses same detection logic as list_app_folders().
+    Requires confirmation:
+        move_app_folders(confirm="YES")
     """
+
+    if confirm.upper() != "YES":
+        return {
+            "status": "error",
+            "message": "Confirmation missing. Use confirm='YES' to move app folders."
+        }
 
     if not get_workspace().exists():
         return {"status": "error", "message": "Workspace does not exist."}
