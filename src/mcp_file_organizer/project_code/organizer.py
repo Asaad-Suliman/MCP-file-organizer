@@ -1,53 +1,25 @@
 from pathlib import Path
 from datetime import datetime
-import json
 from send2trash import send2trash
 
 # Local imports
 from .step2_find_category import find_category
 from .step1_categories import CATEGORIES
 from .step2_detect_folder import detect_folder_type
-from ..workspace_config import get_workspace, get_history_file
 from ..paths import unique_destination
+from ..history import (
+    save_history,
+    pop_last_history,
+    ACTION_MOVE_FILE,
+    ACTION_MOVE_FOLDER,
+    ACTION_MOVE_EMPTY_FILE,
+    ACTION_MOVE_FOLDER_BULK,
+)
 
 # ---------------------------------------------------
 # PATHS
 # ---------------------------------------------------
 LOG_FILE = "organizer.log"
-
-# ---------------------------------------------------
-# HISTORY HELPERS
-# ---------------------------------------------------
-def save_history(entry):
-    """Append a new history entry to the history file."""
-    history = []
-
-    if get_history_file().exists():
-        try:
-            history = json.loads(get_history_file().read_text())
-        except:
-            history = []
-
-    history.append(entry)
-    get_history_file().write_text(json.dumps(history, indent=2))
-
-
-def pop_last_history():
-    """Pop last entry from history file and return it."""
-    if not get_history_file().exists():
-        return None
-
-    try:
-        history = json.loads(get_history_file().read_text())
-    except:
-        return None
-
-    if not history:
-        return None
-
-    last = history.pop()
-    get_history_file().write_text(json.dumps(history, indent=2))
-    return last
 
 
 # ---------------------------------------------------
@@ -104,7 +76,7 @@ def organize_folder(path="."):
                 try:
                     item.rename(destination)
                     save_history({
-                        "type": "move_empty_file",
+                        "type": ACTION_MOVE_EMPTY_FILE,
                         "from": str(item),
                         "to": str(destination)
                     })
@@ -155,7 +127,7 @@ def organize_folder(path="."):
                 item.rename(destination)
 
                 save_history({
-                    "type": "move_file",
+                    "type": ACTION_MOVE_FILE,
                     "from": str(item),
                     "to": str(destination),
                     "category": category
@@ -202,7 +174,7 @@ def organize_folder(path="."):
                 item.rename(new_path)
 
                 save_history({
-                    "type": "move_folder",
+                    "type": ACTION_MOVE_FOLDER,
                     "from": str(item),
                     "to": str(new_path),
                     "folder_type": folder_type
@@ -234,7 +206,7 @@ def undo_last_folder_move():
     if not entry:
         return {"status": "error", "message": "No history available."}
 
-    if entry["type"] not in {"move_folder", "move_folder_bulk"}:
+    if entry["type"] not in {ACTION_MOVE_FOLDER, ACTION_MOVE_FOLDER_BULK}:
         return {"status": "skipped", "reason": "Last history entry is not a folder move."}
 
     old_path = Path(entry["from"])

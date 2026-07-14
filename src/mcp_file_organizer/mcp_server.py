@@ -6,13 +6,30 @@ from mcp.server.fastmcp import FastMCP
 from pathlib import Path
 from datetime import datetime
 import os
-from .workspace_config import get_workspace, get_history_file, get_state_dir, set_workspace_path
+from .workspace_config import get_workspace, get_state_dir, set_workspace_path
 import json
 import hashlib
 
 from .project_code.organizer import organize_folder
 from .project_code.step2_detect_folder import detect_folder_type
 from .paths import unique_destination, resolve_in_workspace
+from .history import (
+    save_history,
+    load_history,
+    overwrite_history,
+    pop_last_history,
+    peek_last_history,
+    push_redo,
+    pop_redo,
+    peek_redo,
+    ACTION_MOVE_FILE,
+    ACTION_MOVE_FOLDER,
+    ACTION_MOVE_EMPTY_FILE,
+    ACTION_MOVE_FOLDER_BULK,
+    ACTION_MOVE_APP_FOLDER,
+    ACTION_SAFE_DELETE,
+    RESTORABLE_MOVE_TYPES,
+)
 from send2trash import send2trash
 
 
@@ -28,11 +45,6 @@ mcp = FastMCP("file-organizer")
 PROTECTED_EXTENSIONS = {".py", ".ipynb", ".md", ".docx", ".txt", ".json"}
 APP_EXTENSIONS = [".exe", ".msi", ".bat", ".cmd"]
 APP_KEYWORDS = ["setup", "installer", "install", "app", "program", "bin", "windows", "driver"]
-
-
-def get_redo_file() -> Path:
-    """Return the redo-stack file path."""
-    return get_state_dir() / "redo.json"
 
 
 def get_rules_file() -> Path:
@@ -112,7 +124,7 @@ def move_file(filename: str, target_folder: str):
 
         #  Add history tracking
         save_history({
-            "type": "move",
+            "type": ACTION_MOVE_FILE,
             "from": str(source),
             "to": str(new_path)
         })
@@ -175,7 +187,7 @@ def safe_delete(filename: str):
 
         # 🔥 Add history entry
         save_history({
-            "type": "safe_delete",
+            "type": ACTION_SAFE_DELETE,
             "file": str(file_path),
             "reason": "safe_delete_tool"
         })
@@ -408,7 +420,7 @@ def apply_rules():
 
                             # 🔥 log move
                             save_history({
-                                "type": "move",
+                                "type": ACTION_MOVE_FILE,
                                 "from": str(item),
                                 "to": str(new_path),
                                 "reason": "rule_extension"
@@ -443,7 +455,7 @@ def apply_rules():
 
                             # 🔥 log move
                             save_history({
-                                "type": "move",
+                                "type": ACTION_MOVE_FILE,
                                 "from": str(item),
                                 "to": str(new_path),
                                 "reason": "rule_contains"
@@ -490,7 +502,7 @@ def apply_rules():
 
                                 # 🔥 log move
                                 save_history({
-                                    "type": "move",
+                                    "type": ACTION_MOVE_FILE,
                                     "from": str(item),
                                     "to": str(new_path),
                                     "reason": "rule_age_move",
@@ -520,7 +532,7 @@ def apply_rules():
 
                                 # 🔥 log safe_delete
                                 save_history({
-                                    "type": "safe_delete",
+                                    "type": ACTION_SAFE_DELETE,
                                     "file": str(item),
                                     "reason": "rule_age_safe_delete",
                                     "days_old": file_age_days
@@ -572,7 +584,7 @@ def apply_rules():
 
                                 # 🔥 log move
                                 save_history({
-                                    "type": "move",
+                                    "type": ACTION_MOVE_FILE,
                                     "from": str(item),
                                     "to": str(new_path),
                                     "reason": "rule_size_move",
@@ -602,7 +614,7 @@ def apply_rules():
 
                                 # 🔥 log safe_delete
                                 save_history({
-                                    "type": "safe_delete",
+                                    "type": ACTION_SAFE_DELETE,
                                     "file": str(item),
                                     "reason": "rule_size_safe_delete",
                                     "size_bytes": file_size
@@ -655,7 +667,7 @@ def apply_rules():
 
                                 # 🔥 log move
                                 save_history({
-                                    "type": "move",
+                                    "type": ACTION_MOVE_FILE,
                                     "from": str(item),
                                     "to": str(new_path),
                                     "reason": "rule_temp_move"
@@ -683,7 +695,7 @@ def apply_rules():
 
                                 # 🔥 log safe_delete
                                 save_history({
-                                    "type": "safe_delete",
+                                    "type": ACTION_SAFE_DELETE,
                                     "file": str(item),
                                     "reason": "rule_temp_safe_delete"
                                 })
@@ -1220,95 +1232,43 @@ def preview_rules():
     return {"status": "ok", "preview": preview}
 
 
-def save_history(entry):
-    """Append a history entry to the history file."""
-    history = []
-
-    if get_history_file().exists():
-        try:
-            history = json.loads(get_history_file().read_text())
-        except:
-            history = []
-
-    history.append(entry)
-    get_history_file().write_text(json.dumps(history, indent=2))
-
-
-def load_history():
-    """Load the full history list."""
-    if get_history_file().exists():
-        try:
-            return json.loads(get_history_file().read_text())
-        except:
-            return []
-    return []
-
-
-def pop_last_history():
-    """Remove last entry from history and push it into redo stack."""
-    if not get_history_file().exists():
-        return None
-
-    history = load_history()
-
-    if not history:
-        return None
-
-    # Remove the last action
-    last = history.pop()
-    get_history_file().write_text(json.dumps(history, indent=2))
-
-    # Load redo stack (ensure list)
-    redo_list = load_redo() or []
-    redo_list.append(last)
-    save_redo(redo_list)
-
-    return last
-
-
-def load_redo():
-    if get_redo_file().exists():
-        try:
-            return json.loads(get_redo_file().read_text())
-        except:
-            return []
-    return []
-
-
-def save_redo(redo_list):
-    get_redo_file().write_text(json.dumps(redo_list, indent=2))
-
-
 @mcp.tool()
 def undo_last_action():
     """
-    Undo the most recent action (move or delete).
-    Supports:
-    - undo move
-    - undo safe delete (moves file back)
+    Undo the most recent action.
+    Supports every move-type entry: move_file, move_folder,
+    move_empty_file, move_folder_bulk, move_app_folder — reversing the
+    recorded from/to rename.
+    safe_delete cannot be restored (the trashed file's location isn't
+    recoverable) and is left on the history stack with a clear error
+    rather than silently discarded.
     """
-    last = pop_last_history()
+    last = peek_last_history()
     if not last:
         return {"status": "error", "message": "No actions to undo."}
 
-    # Load redo list
-    redo_list = load_redo()
+    action_type = last.get("type")
 
-    action_type = last["type"]
-
-    # Reverse MOVE
-    if action_type == "move":
+    if action_type in RESTORABLE_MOVE_TYPES:
         src = Path(last["from"])
         dst = Path(last["to"])
 
-        # If the file exists in destination → move it back
-        if dst.exists():
+        if not dst.exists():
+            return {
+                "status": "error",
+                "message": f"Cannot undo: {dst} no longer exists. This entry remains in history."
+            }
+
+        try:
             src = unique_destination(src)
             dst.rename(src)
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
 
-        # Save this undo into redo stack
-        redo_list.append(last)
-        save_redo(redo_list)
+        # Only remove the entry from history / push it to redo once the
+        # restore has actually succeeded.
+        pop_last_history()
+        push_redo(last)
 
         return {
             "status": "ok",
@@ -1316,9 +1276,18 @@ def undo_last_action():
             "undone_action": last
         }
 
+    if action_type == ACTION_SAFE_DELETE:
+        return {
+            "status": "error",
+            "message": (
+                "Cannot undo safe_delete: the trashed file's location isn't "
+                "recoverable. This entry remains in history."
+            )
+        }
+
     return {
         "status": "error",
-        "message": "Undo type not supported yet."
+        "message": f"Undo not supported for action type: {action_type!r}. This entry remains in history."
     }
 
 
@@ -1326,70 +1295,46 @@ def undo_last_action():
 def redo_last_action():
     """
     Reapply the last undone action.
-    Supports:
-    - move_file
-    - move_folder
+    Supports the same move-type vocabulary undo_last_action produces:
+    move_file, move_folder, move_empty_file, move_folder_bulk,
+    move_app_folder.
     """
-    redo_list = load_redo()
-
-    if not redo_list:
+    entry = peek_redo()
+    if not entry:
         return {"status": "error", "message": "No redo actions available."}
 
-    entry = redo_list.pop()
-    save_redo(redo_list)
+    action_type = entry.get("type")
 
-    action_type = entry["type"]
-
-    # ----------------------------
-    # Redo FILE move
-    # ----------------------------
-    if action_type == "move_file":
+    if action_type in RESTORABLE_MOVE_TYPES:
         old_path = Path(entry["from"])
         new_path = Path(entry["to"])
 
-        if old_path.exists():
-            try:
-                new_path = unique_destination(new_path)
-                old_path.rename(new_path)
-            except Exception as e:
-                return {"status": "error", "message": str(e)}
+        if not old_path.exists():
+            return {
+                "status": "error",
+                "message": f"Cannot redo: {old_path} no longer exists. This entry remains in the redo stack."
+            }
 
+        try:
+            new_path = unique_destination(new_path)
+            old_path.rename(new_path)
+        except Exception as e:
+            return {"status": "error", "message": str(e)}
+
+        # Only remove the entry from redo / push it back to history once
+        # the reapply has actually succeeded.
+        pop_redo()
         save_history(entry)
 
         return {
             "status": "ok",
-            "message": f"Redo successful: moved file again → {new_path}",
+            "message": f"Redo successful: moved {old_path.name} again → {new_path}",
             "entry": entry
         }
 
-    # ----------------------------
-    # Redo FOLDER move
-    # ----------------------------
-    if action_type == "move_folder":
-        old_path = Path(entry["from"])
-        new_path = Path(entry["to"])
-
-        if old_path.exists():
-            try:
-                new_path = unique_destination(new_path)
-                old_path.rename(new_path)
-            except Exception as e:
-                return {"status": "error", "message": str(e)}
-
-        save_history(entry)
-
-        return {
-            "status": "ok",
-            "message": f"Redo successful: moved folder again → {new_path}",
-            "entry": entry
-        }
-
-    # ----------------------------
-    # Unsupported redo actions
-    # ----------------------------
     return {
         "status": "error",
-        "message": f"Redo not supported for action type: {action_type}"
+        "message": f"Redo not supported for action type: {action_type!r}. This entry remains in the redo stack."
     }
 
 
@@ -1476,7 +1421,7 @@ def move_app_folder(folder_name: str, target_category: str, confirm: str):
         folder_path.rename(new_path)
 
         save_history({
-            "type": "move_app_folder",
+            "type": ACTION_MOVE_APP_FOLDER,
             "from": str(folder_path),
             "to": str(new_path),
             "confirmed": True
@@ -1566,7 +1511,7 @@ def move_app_folders():
 
                 # history
                 save_history({
-                    "type": "move_app_folder",
+                    "type": ACTION_MOVE_APP_FOLDER,
                     "from": str(folder),
                     "to": str(new_path)
                 })
@@ -1622,7 +1567,7 @@ def organize_all_folders():
             folder.rename(new_path)
 
             save_history({
-                "type": "move_folder_bulk",
+                "type": ACTION_MOVE_FOLDER_BULK,
                 "from": str(folder),
                 "to": str(new_path),
                 "category": folder_type
@@ -1649,52 +1594,61 @@ def organize_all_folders():
 @mcp.tool()
 def undo_folder_moves():
     """
-    Undo ALL folder moves stored in history.
-    Runs in reverse order for safety.
+    Undo ALL folder moves stored in history (move_folder / move_folder_bulk
+    entries only). Runs in reverse order for safety. Every other history
+    entry is left on the stack untouched — this tool never drains or
+    discards entries it doesn't act on.
     """
 
+    history = load_history()
+
     undone = []
-    skipped = []
     errors = []
+    remaining = []
 
-    while True:
-        entry = pop_last_history()
-
-        if not entry:
-            break
-
-        # Only undo folder moves
-        if entry["type"] not in {"move_folder", "move_folder_bulk"}:
-            skipped.append(entry)
+    # Walk newest-first so folders are restored in last-in-first-out order,
+    # same as before. Entries this tool doesn't act on (wrong type, or a
+    # restore that failed) are kept; only successfully-undone entries are
+    # removed from history.
+    for entry in reversed(history):
+        if entry.get("type") not in {ACTION_MOVE_FOLDER, ACTION_MOVE_FOLDER_BULK}:
+            remaining.append(entry)
             continue
 
         old_path = Path(entry["from"])
         new_path = Path(entry["to"])
 
-        if new_path.exists():
-            try:
-                old_path = unique_destination(old_path)
-                new_path.rename(old_path)
-                undone.append({
-                    "folder": new_path.name,
-                    "restored_to": str(old_path)
-                })
-            except Exception as e:
-                errors.append({
-                    "folder": new_path.name,
-                    "error": str(e)
-                })
-        else:
+        if not new_path.exists():
             errors.append({
                 "folder": new_path.name,
                 "error": "Folder not found at expected location during undo."
             })
+            remaining.append(entry)
+            continue
+
+        try:
+            restore_path = unique_destination(old_path)
+            new_path.rename(restore_path)
+            undone.append({
+                "folder": new_path.name,
+                "restored_to": str(restore_path)
+            })
+        except Exception as e:
+            errors.append({
+                "folder": new_path.name,
+                "error": str(e)
+            })
+            remaining.append(entry)
+
+    # `remaining` was built newest-first; restore original chronological order.
+    remaining.reverse()
+    overwrite_history(remaining)
 
     return {
         "status": "ok",
         "undone_moves": undone,
-        "skipped": skipped,
-        "errors": errors
+        "errors": errors,
+        "remaining_history_count": len(remaining)
     }
 
 
@@ -1735,7 +1689,7 @@ def move_folder_back(folder_name: str, original_path: str):
 
         # Save undo history
         save_history({
-            "type": "manual_folder_move_back",
+            "type": ACTION_MOVE_FOLDER,
             "from": str(folder_path),
             "to": str(new_location)
         })
