@@ -33,7 +33,7 @@ These are the properties the project is built around. Each one is enforced in co
 | --------------------------------------------- | -------------------------------------------------------------------------------------------------------------------------------------------------------------- | --------------------------------------- |
 | **No silent overwrites**                      | Moving `report.pdf` into a folder that already has a `report.pdf` produces `report(1).pdf`. The existing file is never touched.                                | `paths.unique_destination()`            |
 | **No workspace escape**                       | Any path that resolves outside the workspace — `../`, absolute paths elsewhere — is rejected with `ValueError: Path escapes workspace`.                        | `paths.resolve_in_workspace()`          |
-| **Every move is undoable**                    | All 27 tools that move files write to a history stack. `undo_last_action` reverses them.                                                                       | `history.py`                            |
+| **Every move is undoable**                    | Every tool that moves a file writes to a history stack. `undo_last_action` reverses them.                                                                       | `history.py`                            |
 | **Undo never destroys what it can't restore** | If an action type can't be undone, the history entry **stays on the stack** and you get a clear error. It is never consumed and discarded.                     | `undo_last_action()`                    |
 | **No dishonest undo**                         | `safe_delete` sends files to the OS Trash. It does **not** pretend `undo_last_action` can bring them back — because it can't. Recover from your Trash instead. | explicit branch in `undo_last_action()` |
 
@@ -231,8 +231,9 @@ uv run pytest
 
 Five tests, covering the properties that matter:
 
-- a `.pdf` lands in `Documents/`, a `.jpg` lands in `Images/`
-- a name collision produces `a(1).txt` and **leaves the original file's contents untouched**
+- a `.pdf` lands in `Documents/` — `test_pdf_moves_to_documents`
+- a `.jpg` lands in `Images/` — `test_jpg_moves_to_images`
+- a name collision produces `a(1).txt` and **leaves the original file's contents untouched** — `test_collision_produces_numbered_suffix`
 - `../escaped.txt` raises `ValueError` and writes nothing outside the workspace
 - move → undo → redo round-trips correctly, with exactly one entry on the redo stack
 
