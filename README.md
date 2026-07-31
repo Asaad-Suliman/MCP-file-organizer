@@ -234,8 +234,8 @@ Five tests, covering the properties that matter:
 - a `.pdf` lands in `Documents/` — `test_pdf_moves_to_documents`
 - a `.jpg` lands in `Images/` — `test_jpg_moves_to_images`
 - a name collision produces `a(1).txt` and **leaves the original file's contents untouched** — `test_collision_produces_numbered_suffix`
-- `../escaped.txt` raises `ValueError` and writes nothing outside the workspace
-- move → undo → redo round-trips correctly, with exactly one entry on the redo stack
+- `../escaped.txt` raises `ValueError` and writes nothing outside the workspace — `test_path_escape_raises_valueerror`
+- move → undo → redo round-trips correctly, with exactly one entry on the redo stack — `test_undo_redo_round_trip_for_move_file`
 
 All tests run against a `tmp_path` fixture. Running the suite cannot touch your real workspace or your real history.
 
