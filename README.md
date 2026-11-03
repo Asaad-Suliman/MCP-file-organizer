@@ -1,5 +1,9 @@
 # MCP File Organizer
 
+[![CI](https://github.com/Asaad-Suliman/MCP-file-organizer/actions/workflows/ci.yml/badge.svg)](https://github.com/Asaad-Suliman/MCP-file-organizer/actions/workflows/ci.yml)
+
+> **Looking for the latest version?** This file organizer has been rebuilt, together with a hardened terminal server, on one shared safety core in [safe-mcp-suite](https://github.com/Asaad-Suliman/safe-mcp-suite). This repo stays up as the original standalone server and the audit story below.
+
 An MCP server that lets Claude organize your files for you — sort a messy folder by type, find duplicates, archive old files, move things around — with a safety guarantee most file tools don't offer: **it will not overwrite your files, it will not write outside your workspace, and you can undo every move it makes.**
 
 Built for the people who don't organize their laptops. Not because they're lazy — because they're busy, and because the ten minutes it takes to sort a Downloads folder is ten minutes nobody has. Ask Claude to clean it up, and if you don't like the result, undo it.
